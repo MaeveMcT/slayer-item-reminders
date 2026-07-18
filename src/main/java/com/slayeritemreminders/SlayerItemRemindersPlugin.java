@@ -1,8 +1,34 @@
 package com.slayeritemreminders;
 
+import java.awt.Color;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.events.WidgetClosed;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.gameval.DBTableID;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.InfoBoxMenuClicked;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 
 @Slf4j
 @PluginDescriptor(
@@ -12,15 +38,295 @@ import net.runelite.client.plugins.PluginDescriptor;
 )
 public class SlayerItemRemindersPlugin extends Plugin
 {
+	private static final Duration REMINDER_DURATION = Duration.ofMinutes(5);
+
+	@Inject
+	private Client client;
+
+	@Inject
+	private ClientThread clientThread;
+
+	@Inject
+	private ItemManager itemManager;
+
+	@Inject
+	private InfoBoxManager infoBoxManager;
+
+	private String taskName;
+	private boolean suppressTaskReminder;
+	private boolean bankOpen;
+	private boolean reminderWindowActive;
+	private boolean dismissed;
+	private Instant reminderExpiresAt;
+	private ReminderInfoBox requiredInfoBox;
+	private ReminderInfoBox optionalInfoBox;
+
 	@Override
-	protected void startUp() throws Exception
+	protected void startUp()
 	{
 		log.debug("Slayer Item Reminders started");
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			synchronizeTaskSilently();
+		}
 	}
 
 	@Override
-	protected void shutDown() throws Exception
+	protected void shutDown()
 	{
+		clearAssignment();
+		bankOpen = false;
+		suppressTaskReminder = false;
 		log.debug("Slayer Item Reminders stopped");
+	}
+
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged event)
+	{
+		switch (event.getGameState())
+		{
+			case HOPPING:
+			case LOGGING_IN:
+			case CONNECTION_LOST:
+				suppressTaskReminder = true;
+				bankOpen = false;
+				removeInfoBoxes();
+				break;
+			case LOGGED_IN:
+				synchronizeTaskSilently();
+				break;
+			default:
+				break;
+		}
+	}
+
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged event)
+	{
+		int varpId = event.getVarpId();
+		int varbitId = event.getVarbitId();
+		if (varpId == VarPlayerID.SLAYER_COUNT
+			|| varpId == VarPlayerID.SLAYER_AREA
+			|| varpId == VarPlayerID.SLAYER_TARGET
+			|| varbitId == VarbitID.SLAYER_TARGET_BOSSID
+			|| varpId == VarPlayerID.SLAYER_COUNT_ORIGINAL)
+		{
+			clientThread.invokeLater(this::updateTask);
+		}
+	}
+
+	@Subscribe
+	public void onWidgetLoaded(WidgetLoaded event)
+	{
+		if (isBankGroup(event.getGroupId()))
+		{
+			bankOpen = true;
+			removeInfoBoxes();
+		}
+	}
+
+	@Subscribe
+	public void onWidgetClosed(WidgetClosed event)
+	{
+		if (event.isUnload() && isBankGroup(event.getGroupId()))
+		{
+			bankOpen = false;
+			updateTask();
+			if (taskName != null)
+			{
+				activateReminderWindow();
+			}
+		}
+	}
+
+	@Subscribe
+	public void onItemContainerChanged(ItemContainerChanged event)
+	{
+		ItemContainer changed = event.getItemContainer();
+		if (changed == client.getItemContainer(InventoryID.INV)
+			|| changed == client.getItemContainer(InventoryID.WORN))
+		{
+			clientThread.invokeLater(this::refreshInfoBoxes);
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		if (reminderWindowActive && reminderExpiresAt != null
+			&& !Instant.now().isBefore(reminderExpiresAt))
+		{
+			reminderWindowActive = false;
+			removeInfoBoxes();
+		}
+	}
+
+	@Subscribe
+	public void onInfoBoxMenuClicked(InfoBoxMenuClicked event)
+	{
+		if ((event.getInfoBox() == requiredInfoBox || event.getInfoBox() == optionalInfoBox)
+			&& ReminderInfoBox.DISMISS.equals(event.getEntry().getOption()))
+		{
+			dismissed = true;
+			reminderWindowActive = false;
+			removeInfoBoxes();
+		}
+	}
+
+	private void synchronizeTaskSilently()
+	{
+		suppressTaskReminder = true;
+		clientThread.invokeLater(() ->
+		{
+			updateTask();
+			suppressTaskReminder = false;
+		});
+	}
+
+	private void updateTask()
+	{
+		int amount = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
+		if (amount <= 0)
+		{
+			if (taskName != null)
+			{
+				clearAssignment();
+			}
+			return;
+		}
+
+		String currentTaskName = readTaskName();
+		if (currentTaskName == null)
+		{
+			return;
+		}
+
+		boolean changed = !Objects.equals(taskName, currentTaskName);
+		taskName = currentTaskName;
+		if (changed)
+		{
+			removeInfoBoxes();
+			if (!suppressTaskReminder)
+			{
+				activateReminderWindow();
+			}
+		}
+	}
+
+	private String readTaskName()
+	{
+		int taskId = client.getVarpValue(VarPlayerID.SLAYER_TARGET);
+		int taskRow;
+		if (taskId == 98)
+		{
+			List<Integer> bossRows = client.getDBRowsByValue(
+				DBTableID.SlayerTaskSublist.ID,
+				DBTableID.SlayerTaskSublist.COL_TASK_SUBTABLE_ID,
+				0,
+				client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID));
+			if (bossRows.isEmpty())
+			{
+				return null;
+			}
+			taskRow = (Integer) client.getDBTableField(
+				bossRows.get(0), DBTableID.SlayerTaskSublist.COL_TASK, 0)[0];
+		}
+		else
+		{
+			List<Integer> taskRows = client.getDBRowsByValue(
+				DBTableID.SlayerTask.ID, DBTableID.SlayerTask.COL_ID, 0, taskId);
+			if (taskRows.isEmpty())
+			{
+				return null;
+			}
+			taskRow = taskRows.get(0);
+		}
+
+		return (String) client.getDBTableField(
+			taskRow, DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
+	}
+
+	private void activateReminderWindow()
+	{
+		dismissed = false;
+		reminderWindowActive = true;
+		reminderExpiresAt = Instant.now().plus(REMINDER_DURATION);
+		refreshInfoBoxes();
+	}
+
+	private void refreshInfoBoxes()
+	{
+		if (taskName == null || bankOpen || dismissed || !reminderWindowActive)
+		{
+			removeInfoBoxes();
+			return;
+		}
+
+		TaskDefinition definition = TaskCatalog.get(taskName);
+		List<ReminderItem> missingRequired = definition == null
+			? java.util.Collections.emptyList()
+			: definition.getRequiredItems().stream()
+				.filter(item -> !item.isPresent(client))
+				.collect(Collectors.toList());
+		updateRequiredInfoBox(missingRequired);
+	}
+
+	private void updateRequiredInfoBox(List<ReminderItem> missingItems)
+	{
+		if (requiredInfoBox != null)
+		{
+			infoBoxManager.removeInfoBox(requiredInfoBox);
+			requiredInfoBox = null;
+		}
+
+		if (missingItems.isEmpty())
+		{
+			return;
+		}
+
+		ReminderItem first = missingItems.get(0);
+		requiredInfoBox = new ReminderInfoBox(
+			itemManager.getImage(first.getImageItemId()),
+			this,
+			missingItems.size(),
+			Color.RED,
+			buildTooltip("Required", missingItems));
+		infoBoxManager.addInfoBox(requiredInfoBox);
+	}
+
+	private String buildTooltip(String category, List<ReminderItem> items)
+	{
+		String itemLines = items.stream()
+			.map(item -> item.getName())
+			.collect(Collectors.joining("<br>"));
+		return "<html><b>" + category + " for " + taskName + "</b><br>" + itemLines + "</html>";
+	}
+
+	private void clearAssignment()
+	{
+		taskName = null;
+		dismissed = false;
+		reminderWindowActive = false;
+		reminderExpiresAt = null;
+		removeInfoBoxes();
+	}
+
+	private void removeInfoBoxes()
+	{
+		if (requiredInfoBox != null)
+		{
+			infoBoxManager.removeInfoBox(requiredInfoBox);
+			requiredInfoBox = null;
+		}
+		if (optionalInfoBox != null)
+		{
+			infoBoxManager.removeInfoBox(optionalInfoBox);
+			optionalInfoBox = null;
+		}
+	}
+
+	private static boolean isBankGroup(int groupId)
+	{
+		return groupId == InterfaceID.BANKMAIN || groupId == InterfaceID.BANK_DEPOSITBOX;
 	}
 }
