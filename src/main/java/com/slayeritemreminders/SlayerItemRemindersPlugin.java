@@ -3,8 +3,10 @@ package com.slayeritemreminders;
 import java.awt.Color;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -52,12 +54,18 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Inject
 	private InfoBoxManager infoBoxManager;
 
+	@Inject
+	private WikiDropTableClient wikiDropTableClient;
+
 	private String taskName;
 	private boolean suppressTaskReminder;
 	private boolean bankOpen;
 	private boolean reminderWindowActive;
 	private boolean dismissed;
+	private boolean optionalOverrideVisible;
+	private long taskGeneration;
 	private Instant reminderExpiresAt;
+	private Set<RecommendedItem> recommendations = Collections.emptySet();
 	private ReminderInfoBox requiredInfoBox;
 	private ReminderInfoBox optionalInfoBox;
 
@@ -75,6 +83,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	protected void shutDown()
 	{
 		clearAssignment();
+		wikiDropTableClient.reset();
 		bankOpen = false;
 		suppressTaskReminder = false;
 		log.debug("Slayer Item Reminders stopped");
@@ -153,10 +162,11 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
-		if (reminderWindowActive && reminderExpiresAt != null
+		if ((reminderWindowActive || optionalOverrideVisible) && reminderExpiresAt != null
 			&& !Instant.now().isBefore(reminderExpiresAt))
 		{
 			reminderWindowActive = false;
+			optionalOverrideVisible = false;
 			removeInfoBoxes();
 		}
 	}
@@ -169,6 +179,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		{
 			dismissed = true;
 			reminderWindowActive = false;
+			optionalOverrideVisible = false;
 			removeInfoBoxes();
 		}
 	}
@@ -205,6 +216,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 		taskName = currentTaskName;
 		if (changed)
 		{
+			taskGeneration++;
+			recommendations = Collections.emptySet();
+			optionalOverrideVisible = false;
 			removeInfoBoxes();
 			if (!suppressTaskReminder)
 			{
@@ -249,34 +263,81 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void activateReminderWindow()
 	{
 		dismissed = false;
+		optionalOverrideVisible = false;
 		reminderWindowActive = true;
 		reminderExpiresAt = Instant.now().plus(REMINDER_DURATION);
 		refreshInfoBoxes();
+		requestRecommendations();
+	}
+
+	private void requestRecommendations()
+	{
+		TaskDefinition definition = TaskCatalog.get(taskName);
+		if (definition == null || definition.getWikiPage() == null)
+		{
+			return;
+		}
+
+		long requestedGeneration = taskGeneration;
+		wikiDropTableClient.lookup(definition.getWikiPage(), result ->
+		{
+			if (taskName == null || taskGeneration != requestedGeneration)
+			{
+				return;
+			}
+
+			recommendations = result;
+			if (dismissed && !result.isEmpty())
+			{
+				optionalOverrideVisible = true;
+			}
+			refreshInfoBoxes();
+		});
 	}
 
 	private void refreshInfoBoxes()
 	{
-		if (taskName == null || bankOpen || dismissed || !reminderWindowActive)
+		if (taskName == null || bankOpen)
 		{
 			removeInfoBoxes();
 			return;
 		}
 
 		TaskDefinition definition = TaskCatalog.get(taskName);
-		List<ReminderItem> missingRequired = definition == null
-			? java.util.Collections.emptyList()
-			: definition.getRequiredItems().stream()
+		List<ReminderItem> missingRequired = Collections.emptyList();
+		if (!dismissed && reminderWindowActive && definition != null)
+		{
+			missingRequired = definition.getRequiredItems().stream()
 				.filter(item -> !item.isPresent(client))
 				.collect(Collectors.toList());
-		updateRequiredInfoBox(missingRequired);
+		}
+		updateInfoBox(true, missingRequired);
+
+		List<ReminderItem> missingOptional = Collections.emptyList();
+		if ((!dismissed && reminderWindowActive) || optionalOverrideVisible)
+		{
+			missingOptional = recommendations.stream()
+				.map(RecommendedItem::getReminderItem)
+				.filter(item -> !item.isPresent(client))
+				.collect(Collectors.toList());
+		}
+		updateInfoBox(false, missingOptional);
 	}
 
-	private void updateRequiredInfoBox(List<ReminderItem> missingItems)
+	private void updateInfoBox(boolean required, List<ReminderItem> missingItems)
 	{
-		if (requiredInfoBox != null)
+		ReminderInfoBox current = required ? requiredInfoBox : optionalInfoBox;
+		if (current != null)
 		{
-			infoBoxManager.removeInfoBox(requiredInfoBox);
-			requiredInfoBox = null;
+			infoBoxManager.removeInfoBox(current);
+			if (required)
+			{
+				requiredInfoBox = null;
+			}
+			else
+			{
+				optionalInfoBox = null;
+			}
 		}
 
 		if (missingItems.isEmpty())
@@ -285,13 +346,21 @@ public class SlayerItemRemindersPlugin extends Plugin
 		}
 
 		ReminderItem first = missingItems.get(0);
-		requiredInfoBox = new ReminderInfoBox(
+		ReminderInfoBox infoBox = new ReminderInfoBox(
 			itemManager.getImage(first.getImageItemId()),
 			this,
 			missingItems.size(),
-			Color.RED,
-			buildTooltip("Required", missingItems));
-		infoBoxManager.addInfoBox(requiredInfoBox);
+			required ? Color.RED : Color.YELLOW,
+			buildTooltip(required ? "Required" : "Recommended", missingItems));
+		infoBoxManager.addInfoBox(infoBox);
+		if (required)
+		{
+			requiredInfoBox = infoBox;
+		}
+		else
+		{
+			optionalInfoBox = infoBox;
+		}
 	}
 
 	private String buildTooltip(String category, List<ReminderItem> items)
@@ -305,7 +374,10 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void clearAssignment()
 	{
 		taskName = null;
+		taskGeneration++;
+		recommendations = Collections.emptySet();
 		dismissed = false;
+		optionalOverrideVisible = false;
 		reminderWindowActive = false;
 		reminderExpiresAt = null;
 		removeInfoBoxes();

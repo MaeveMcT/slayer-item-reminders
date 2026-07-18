@@ -12,7 +12,7 @@ The plugin needs a catalog connecting Slayer tasks to items worth bringing. Some
 The MVP has local required-item rules for only two tasks:
 
 - Gargoyles
-- Desert lizards
+- Lizards (using Desert lizard as the canonical monster)
 
 Every non-generic Slayer task that uniquely identifies a canonical monster is eligible for a drop-table lookup and loot-container recommendations. The MVP uses a local task-to-Wiki-page map. Generic tasks that can be completed using materially different monsters, such as Birds, Dogs, or Bears, are omitted from Wiki recommendations.
 

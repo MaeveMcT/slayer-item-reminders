@@ -30,7 +30,7 @@ The MVP defines required-item conditions only for:
 | Task | Requirement | Satisfied by |
 | --- | --- | --- |
 | Gargoyles | Finishing tool | Rock hammer or rock thrownhammer |
-| Desert lizards | Finishing consumable | Any positive quantity of ice coolers |
+| Lizards (canonical Desert lizard) | Finishing consumable | Any positive quantity of ice coolers |
 
 The local task-to-Wiki-page map includes non-generic tasks that identify one canonical monster. Generic tasks are unsupported for optional recommendations in the MVP.
 
