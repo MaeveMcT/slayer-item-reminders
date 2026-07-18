@@ -2,6 +2,12 @@
 
 A standalone RuneLite plugin that reminds players which items to bring for Slayer tasks.
 
+## Design
+
+- [Domain model](docs/domain-model.md)
+- [Architecture decisions](docs/decisions)
+- [Domain glossary](docs/glossary.md)
+
 ## Development
 
 Build the plugin:
