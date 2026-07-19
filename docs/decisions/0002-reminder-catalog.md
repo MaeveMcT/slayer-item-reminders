@@ -19,7 +19,7 @@ Every Slayer task is eligible for a drop-table lookup and loot-container recomme
 The catalog can contain two kinds of entries:
 
 - Required items, such as a rock hammer or ice coolers.
-- Loot-container recommendations are based on drop-table variety, not probability or expected quantity. Recommend a herb sack when the canonical monster's table contains more than four herb items. Recommend a seed box when it contains more than four seed items.
+- Loot-container recommendations are based on drop-table variety, not probability or expected quantity. Recommend a herb sack when the canonical monster's table contains four or more herb items. Recommend a seed box when it contains four or more seed items.
 
 The MVP fetches drop-table information from the OSRS Wiki by default whenever any Slayer task is retrieved; this is not configurable. Required-item rules remain local and are evaluated only for the initial two-task pool, so a network failure cannot suppress mechanically necessary items for those tasks.
 
@@ -29,9 +29,10 @@ The MVP fetches drop-table information from the OSRS Wiki by default whenever an
 - A recommendation can be satisfied by the corresponding container being in inventory or equipment, although these containers will ordinarily be in inventory.
 - All functional item variants count as equivalent: regular, open, and cosmetic herb sacks satisfy the herb-sack recommendation; open and closed seed boxes satisfy the seed-box recommendation.
 - The MVP treats any positive quantity as satisfying an item requirement, including consumables.
-- Only items accepted by the corresponding container count toward the more-than-four threshold.
+- Only items accepted by the corresponding container count toward the four-item threshold.
 - Distinct eligible item types are counted; repeated rows for the same item count once.
 - For Gargoyles, either a rock hammer or rock thrownhammer satisfies the required-item rule.
+- Lizardmen use Lizardman shaman as their canonical Wiki drop-table page.
 
 ## Runtime lookup
 

@@ -56,8 +56,8 @@ Drop probability, dropped quantity, and duplicate rows are ignored.
 
 Derived recommendations:
 
-- More than four eligible herb item types → Herb sack
-- More than four eligible seed item types → Seed box
+- Four or more eligible herb item types → Herb sack
+- Four or more eligible seed item types → Seed box
 
 All functional open, closed, and cosmetic container variants satisfy their recommendation.
 

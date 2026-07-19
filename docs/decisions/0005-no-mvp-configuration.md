@@ -12,7 +12,7 @@ The MVP should validate the reminder workflow before introducing customization a
 The MVP exposes no configuration options. The following behavior is fixed:
 
 - Five-minute reminder expiry.
-- More than four distinct eligible drop-table items triggers a loot-container recommendation.
+- Four or more distinct eligible drop-table items triggers a loot-container recommendation.
 - Required and optional infobox colors and presentation.
 - OSRS Wiki lookups for locally mapped non-generic tasks.
 - Thirty-second Wiki request timeout.

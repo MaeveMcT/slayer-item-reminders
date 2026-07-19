@@ -10,15 +10,14 @@ import static org.junit.Assert.assertTrue;
 public class DropTableParserTest
 {
 	@Test
-	public void recommendsHerbSackForMoreThanFourDistinctEligibleHerbs() throws IOException
+	public void recommendsHerbSackForFourDistinctEligibleHerbs() throws IOException
 	{
 		String html = drops(
 			row("Grimy guam leaf", "1"),
 			row("Grimy marrentill", "1"),
 			row("Grimy tarromin", "1"),
 			row("Grimy harralander", "1"),
-			row("Grimy ranarr weed", "1"),
-			row("Grimy ranarr weed", "1"));
+			row("Grimy harralander", "1"));
 
 		Set<RecommendedItem> recommendations = DropTableParser.parse(html);
 
@@ -33,7 +32,6 @@ public class DropTableParserTest
 			row("Grimy guam leaf", "1"),
 			row("Grimy marrentill", "1"),
 			row("Grimy tarromin", "1"),
-			row("Grimy harralander", "1"),
 			row("Grimy ranarr weed", "5 (noted)"),
 			row("Clean ranarr weed", "1"));
 
@@ -43,14 +41,13 @@ public class DropTableParserTest
 	}
 
 	@Test
-	public void recommendsSeedBoxForMoreThanFourDistinctEligibleSeeds() throws IOException
+	public void recommendsSeedBoxForFourDistinctEligibleSeeds() throws IOException
 	{
 		String html = drops(
 			row("Potato seed", "1"),
 			row("Onion seed", "1"),
 			row("Cabbage seed", "1"),
-			row("Tomato seed", "1"),
-			row("Ranarr seed", "1"));
+			row("Tomato seed", "1"));
 
 		Set<RecommendedItem> recommendations = DropTableParser.parse(html);
 

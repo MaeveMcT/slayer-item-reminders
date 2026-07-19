@@ -48,11 +48,11 @@ final class DropTableParser
 		new ParserDelegator().parse(new StringReader(html), callback, true);
 
 		EnumSet<RecommendedItem> recommendations = EnumSet.noneOf(RecommendedItem.class);
-		if (callback.herbs.size() > RECOMMENDATION_THRESHOLD)
+		if (callback.herbs.size() >= RECOMMENDATION_THRESHOLD)
 		{
 			recommendations.add(RecommendedItem.HERB_SACK);
 		}
-		if (callback.seeds.size() > RECOMMENDATION_THRESHOLD)
+		if (callback.seeds.size() >= RECOMMENDATION_THRESHOLD)
 		{
 			recommendations.add(RecommendedItem.SEED_BOX);
 		}

@@ -82,7 +82,7 @@ final class TaskCatalog
 		wiki(tasks, "Lava Dragons", "Lava dragon");
 		wiki(tasks, "Lesser demons", "Lesser demon");
 		wiki(tasks, "Lesser Nagua", "Lesser Nagua");
-		wiki(tasks, "Lizardmen", "Lizardman");
+		wiki(tasks, "Lizardmen", "Lizardman shaman");
 		wiki(tasks, "The Maggot King", "Maggot King");
 		wiki(tasks, "Magic axes", "Magic axe");
 		wiki(tasks, "Mammoths", "Mammoth");
