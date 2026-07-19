@@ -273,13 +273,10 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void requestRecommendations()
 	{
 		TaskDefinition definition = TaskCatalog.get(taskName);
-		if (definition == null || definition.getWikiPage() == null)
-		{
-			return;
-		}
+		String wikiPage = definition == null ? taskName : definition.getWikiPage();
 
 		long requestedGeneration = taskGeneration;
-		wikiDropTableClient.lookup(definition.getWikiPage(), result ->
+		wikiDropTableClient.lookup(wikiPage, result ->
 		{
 			if (taskName == null || taskGeneration != requestedGeneration)
 			{

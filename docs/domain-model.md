@@ -32,7 +32,7 @@ The MVP defines required-item conditions only for:
 | Gargoyles | Finishing tool | Rock hammer or rock thrownhammer |
 | Lizards (canonical Desert lizard) | Finishing consumable | Any positive quantity of ice coolers |
 
-The local task-to-Wiki-page map includes non-generic tasks that identify one canonical monster. Generic tasks are unsupported for optional recommendations in the MVP.
+The local task-to-Wiki-page map identifies canonical monsters where known. Unmapped and generic tasks fall back to using the game-provided task name as the Wiki page title.
 
 ### Item condition
 
@@ -109,7 +109,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 - An asynchronous response cannot affect a different or completed assignment.
 - A manual dismissal normally wins until bank close or a new assignment; a newly returned optional result is the intentional MVP exception.
 - The plugin never shows reminders while a supported bank interface is open.
-- Generic tasks never produce optional recommendations in the MVP.
+- A task with no missing required items and no derived optional recommendations produces no infobox.
 
 ## External boundary
 

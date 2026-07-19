@@ -7,7 +7,7 @@ A Slayer task for which the plugin knows about one or more items a player should
 The ordinary monster uniquely identified by a non-generic Slayer task and represented by the locally mapped OSRS Wiki page used for its drop-table lookup.
 
 ## Generic task
-A broad Slayer assignment that can be completed using multiple materially different monsters, such as Birds, Dogs, or Bears. Generic tasks do not receive Wiki recommendations in the MVP.
+A broad Slayer assignment that can be completed using multiple materially different monsters, such as Birds, Dogs, or Bears. The MVP looks up its task-name Wiki page, which may be less accurate than a player-selected monster variant.
 
 ## Reminder item
 An item associated with a relevant Slayer task. A reminder item is classified as either required or recommended.

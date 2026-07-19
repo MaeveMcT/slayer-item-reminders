@@ -14,14 +14,14 @@ The MVP has local required-item rules for only two tasks:
 - Gargoyles
 - Lizards (using Desert lizard as the canonical monster)
 
-Every non-generic Slayer task that uniquely identifies a canonical monster is eligible for a drop-table lookup and loot-container recommendations. The MVP uses a local task-to-Wiki-page map. Generic tasks that can be completed using materially different monsters, such as Birds, Dogs, or Bears, are omitted from Wiki recommendations.
+Every Slayer task is eligible for a drop-table lookup and loot-container recommendations. The MVP uses a local task-to-Wiki-page map where a canonical monster is known. For an unmapped or generic task, it falls back to the task name as the Wiki page title.
 
 The catalog can contain two kinds of entries:
 
 - Required items, such as a rock hammer or ice coolers.
 - Loot-container recommendations are based on drop-table variety, not probability or expected quantity. Recommend a herb sack when the canonical monster's table contains more than four herb items. Recommend a seed box when it contains more than four seed items.
 
-The MVP fetches drop-table information from the OSRS Wiki by default whenever a mapped non-generic Slayer task is retrieved; this is not configurable. Required-item rules remain local and are evaluated only for the initial two-task pool, so a network failure cannot suppress mechanically necessary items for those tasks.
+The MVP fetches drop-table information from the OSRS Wiki by default whenever any Slayer task is retrieved; this is not configurable. Required-item rules remain local and are evaluated only for the initial two-task pool, so a network failure cannot suppress mechanically necessary items for those tasks.
 
 ## Consequences
 
@@ -49,7 +49,7 @@ It is technically possible to query the OSRS Wiki asynchronously when a task is 
 
 ## Future considerations
 
-- Revisit generic tasks. Consider Wiki-assisted discovery or player selection of an eligible monster variant; the selected variant should determine the drop table.
+- Revisit generic-task accuracy. Consider Wiki-assisted discovery or player selection of an eligible monster variant; the selected variant should determine the drop table.
 - Model consumable requirements explicitly and consider the remaining task length when recommending a quantity.
 - Consider a user-visible indicator when optional Wiki recommendations are unavailable.
 - Add persistent stale-while-revalidate caching with expiration, schema versioning, and offline behavior.
