@@ -13,7 +13,7 @@ A task can have both mechanically required items and optional loot-container rec
   - One infobox listing missing required items.
   - One infobox listing missing optional recommendations, such as a herb sack or seed box.
 - Show each category's missing-item details in its infobox tooltip.
-- Add a standard RuneLite infobox menu entry: **Dismiss**.
+- Add a standard RuneLite infobox menu entry: **Dismiss**. RuneLite exposes infobox menu entries while Shift is held, so the action is **Shift-right-click → Dismiss**.
 - Dismissing either infobox dismisses both required and optional reminders until the next bank closes or another lifecycle reset occurs.
 - The required infobox uses the first missing required item's icon and red count text.
 - The optional infobox uses the first missing recommended item's icon and yellow count text.

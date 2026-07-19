@@ -365,7 +365,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		String itemLines = items.stream()
 			.map(item -> item.getName())
 			.collect(Collectors.joining("<br>"));
-		return "<html><b>" + category + " for " + taskName + "</b><br>" + itemLines + "</html>";
+		return category + " for " + taskName + "<br>" + itemLines;
 	}
 
 	private void clearAssignment()

@@ -68,7 +68,7 @@ There are at most two infoboxes:
 - **Required:** first missing required item's icon, red missing-item count, tooltip listing missing required items.
 - **Optional:** first missing recommendation's icon, yellow missing-item count, tooltip listing missing recommendations.
 
-Both tooltips identify the current Slayer task. Either infobox provides **right-click → Dismiss**, which dismisses both.
+Both tooltips identify the current Slayer task. Either infobox provides RuneLite's standard **Shift-right-click → Dismiss** menu action, which dismisses both.
 
 ## Lifecycle state
 

@@ -10,7 +10,7 @@ A reminder should remain noticeable after a relevant Slayer task is assigned, bu
 ## Decision
 
 - Assigning a relevant Slayer task creates a persistent reminder.
-- The player can use an infobox's right-click **Dismiss** action to dismiss both reminder categories temporarily.
+- The player can use an infobox's **Shift-right-click → Dismiss** action to dismiss both reminder categories temporarily.
 - The reminder remains hidden while the bank is open.
 - Closing a regular bank interface or bank deposit box resets a previous dismissal and shows the reminder again if items are still missing.
 - The requirement is satisfied only while every required item is present in either the inventory or equipment.
