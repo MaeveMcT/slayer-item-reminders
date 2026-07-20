@@ -2,7 +2,6 @@ package com.slayeritemreminders;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Locale;
@@ -15,28 +14,6 @@ import javax.swing.text.html.parser.ParserDelegator;
 final class DropTableParser
 {
 	private static final int RECOMMENDATION_THRESHOLD = 4;
-
-	private static final Set<String> HERBS = names(
-		"Grimy guam leaf", "Grimy marrentill", "Grimy tarromin", "Grimy harralander",
-		"Grimy ranarr weed", "Grimy toadflax", "Grimy irit leaf", "Grimy avantoe",
-		"Grimy kwuarm", "Grimy snapdragon", "Grimy cadantine", "Grimy lantadyme",
-		"Grimy dwarf weed", "Grimy torstol");
-
-	private static final Set<String> SEEDS = names(
-		"Potato seed", "Onion seed", "Cabbage seed", "Tomato seed", "Sweetcorn seed",
-		"Strawberry seed", "Watermelon seed", "Snape grass seed", "Marigold seed",
-		"Rosemary seed", "Nasturtium seed", "Woad seed", "Limpwurt seed", "White lily seed",
-		"Barley seed", "Hammerstone seed", "Asgarnian seed", "Jute seed", "Yanillian seed",
-		"Krandorian seed", "Wildblood seed", "Guam seed", "Marrentill seed", "Tarromin seed",
-		"Harralander seed", "Ranarr seed", "Toadflax seed", "Irit seed", "Avantoe seed",
-		"Kwuarm seed", "Snapdragon seed", "Cadantine seed", "Lantadyme seed",
-		"Dwarf weed seed", "Torstol seed", "Redberry seed", "Cadavaberry seed",
-		"Dwellberry seed", "Jangerberry seed", "Whiteberry seed", "Poison ivy seed",
-		"Acorn", "Willow seed", "Maple seed", "Yew seed", "Magic seed", "Apple tree seed",
-		"Banana tree seed", "Orange tree seed", "Curry tree seed", "Pineapple seed",
-		"Papaya tree seed", "Palm tree seed", "Dragonfruit tree seed", "Calquat tree seed",
-		"Spirit seed", "Teak seed", "Mahogany seed", "Celastrus seed", "Redwood tree seed",
-		"Seaweed spore", "Grape seed");
 
 	private DropTableParser()
 	{
@@ -59,13 +36,16 @@ final class DropTableParser
 		return recommendations;
 	}
 
-	private static Set<String> names(String... names)
+	private static boolean isHerb(String item)
 	{
-		Set<String> result = new HashSet<>();
-		Arrays.stream(names)
-			.map(name -> name.toLowerCase(Locale.ENGLISH))
-			.forEach(result::add);
-		return result;
+		return item.startsWith("grimy ");
+	}
+
+	private static boolean isSeed(String item)
+	{
+		return (item.endsWith(" seed") && !item.contains("crystal"))
+			|| item.equals("acorn")
+			|| item.endsWith(" spore");
 	}
 
 	private static final class DropTableCallback extends HTMLEditorKit.ParserCallback
@@ -116,8 +96,8 @@ final class DropTableParser
 			{
 				if (!rowText.toString().toLowerCase(Locale.ENGLISH).contains("noted"))
 				{
-					rowItems.stream().filter(HERBS::contains).forEach(herbs::add);
-					rowItems.stream().filter(SEEDS::contains).forEach(seeds::add);
+					rowItems.stream().filter(DropTableParser::isHerb).forEach(herbs::add);
+					rowItems.stream().filter(DropTableParser::isSeed).forEach(seeds::add);
 				}
 				inRow = false;
 			}

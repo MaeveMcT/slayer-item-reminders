@@ -44,14 +44,28 @@ public class DropTableParserTest
 	public void recommendsSeedBoxForFourDistinctEligibleSeeds() throws IOException
 	{
 		String html = drops(
-			row("Potato seed", "1"),
-			row("Onion seed", "1"),
-			row("Cabbage seed", "1"),
-			row("Tomato seed", "1"));
+			row("Cactus seed", "1"),
+			row("Potato cactus seed", "1"),
+			row("Belladonna seed", "1"),
+			row("Mushroom spore", "1"));
 
 		Set<RecommendedItem> recommendations = DropTableParser.parse(html);
 
 		assertTrue(recommendations.contains(RecommendedItem.SEED_BOX));
+	}
+
+	@Test
+	public void doesNotTreatCrystalSeedsAsSeedBoxSeeds() throws IOException
+	{
+		String html = drops(
+			row("Potato seed", "1"),
+			row("Onion seed", "1"),
+			row("Cabbage seed", "1"),
+			row("Enhanced crystal weapon seed", "1"));
+
+		Set<RecommendedItem> recommendations = DropTableParser.parse(html);
+
+		assertFalse(recommendations.contains(RecommendedItem.SEED_BOX));
 	}
 
 	private static String drops(String... rows)
