@@ -43,6 +43,7 @@ final class DropTableParser
 
 	private static boolean isSeed(String item)
 	{
+		// TODO: Consider deriving seed box compatibility from https://oldschool.runescape.wiki/w/Seeds.
 		return (item.endsWith(" seed") && !item.contains("crystal"))
 			|| item.equals("acorn")
 			|| item.endsWith(" spore");
