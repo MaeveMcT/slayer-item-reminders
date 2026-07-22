@@ -68,6 +68,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private boolean reminderWindowActive;
 	private boolean dismissed;
 	private boolean optionalOverrideVisible;
+	private boolean variantPromptPending;
 	private boolean variantMenuOpen;
 	private long taskGeneration;
 	private TaskVariant selectedVariant;
@@ -106,6 +107,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			case CONNECTION_LOST:
 				suppressTaskReminder = true;
 				bankOpen = false;
+				variantPromptPending = false;
 				removeInfoBoxes();
 				break;
 			case LOGGED_IN:
@@ -169,6 +171,16 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		if (variantPromptPending && !bankOpen && taskName != null)
+		{
+			variantPromptPending = false;
+			TaskDefinition definition = TaskCatalog.get(taskName);
+			if (definition != null && definition.hasMultipleVariants() && selectedVariant == null)
+			{
+				openVariantMenu(definition);
+			}
+		}
+
 		if ((reminderWindowActive || optionalOverrideVisible) && reminderExpiresAt != null
 			&& !Instant.now().isBefore(reminderExpiresAt))
 		{
@@ -225,6 +237,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		{
 			taskGeneration++;
 			selectedVariant = null;
+			variantPromptPending = false;
 			variantMenuOpen = false;
 			recommendations = Collections.emptySet();
 			optionalOverrideVisible = false;
@@ -283,7 +296,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			taskGeneration++;
 			recommendations = Collections.emptySet();
 			refreshInfoBoxes();
-			openVariantMenu(definition);
+			variantPromptPending = true;
 			return;
 		}
 
@@ -318,6 +331,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		}
 
 		selectedVariant = variant;
+		variantPromptPending = false;
 		taskGeneration++;
 		recommendations = Collections.emptySet();
 		optionalOverrideVisible = false;
@@ -444,6 +458,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		taskName = null;
 		taskGeneration++;
 		selectedVariant = null;
+		variantPromptPending = false;
 		variantMenuOpen = false;
 		recommendations = Collections.emptySet();
 		dismissed = false;
