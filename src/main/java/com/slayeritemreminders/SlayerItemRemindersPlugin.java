@@ -28,6 +28,8 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.InfoBoxMenuClicked;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.chatbox.ChatboxPanelManager;
+import net.runelite.client.game.chatbox.ChatboxTextMenuInput;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
@@ -57,13 +59,18 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Inject
 	private WikiDropTableClient wikiDropTableClient;
 
+	@Inject
+	private ChatboxPanelManager chatboxPanelManager;
+
 	private String taskName;
 	private boolean suppressTaskReminder;
 	private boolean bankOpen;
 	private boolean reminderWindowActive;
 	private boolean dismissed;
 	private boolean optionalOverrideVisible;
+	private boolean variantMenuOpen;
 	private long taskGeneration;
+	private TaskVariant selectedVariant;
 	private Instant reminderExpiresAt;
 	private Set<RecommendedItem> recommendations = Collections.emptySet();
 	private ReminderInfoBox requiredInfoBox;
@@ -143,7 +150,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			updateTask();
 			if (taskName != null)
 			{
-				activateReminderWindow();
+				activateReminderWindow(true);
 			}
 		}
 	}
@@ -217,12 +224,14 @@ public class SlayerItemRemindersPlugin extends Plugin
 		if (changed)
 		{
 			taskGeneration++;
+			selectedVariant = null;
+			variantMenuOpen = false;
 			recommendations = Collections.emptySet();
 			optionalOverrideVisible = false;
 			removeInfoBoxes();
 			if (!suppressTaskReminder)
 			{
-				activateReminderWindow();
+				activateReminderWindow(false);
 			}
 		}
 	}
@@ -260,12 +269,58 @@ public class SlayerItemRemindersPlugin extends Plugin
 			taskRow, DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
 	}
 
-	private void activateReminderWindow()
+	private void activateReminderWindow(boolean offerVariantSelection)
 	{
 		dismissed = false;
 		optionalOverrideVisible = false;
 		reminderWindowActive = true;
 		reminderExpiresAt = Instant.now().plus(REMINDER_DURATION);
+
+		TaskDefinition definition = TaskCatalog.get(taskName);
+		if (offerVariantSelection && definition != null
+			&& definition.hasMultipleVariants() && selectedVariant == null)
+		{
+			taskGeneration++;
+			recommendations = Collections.emptySet();
+			refreshInfoBoxes();
+			openVariantMenu(definition);
+			return;
+		}
+
+		refreshInfoBoxes();
+		requestRecommendations();
+	}
+
+	private void openVariantMenu(TaskDefinition definition)
+	{
+		if (variantMenuOpen)
+		{
+			return;
+		}
+
+		variantMenuOpen = true;
+		String requestedTask = taskName;
+		long requestedGeneration = taskGeneration;
+		ChatboxTextMenuInput input = chatboxPanelManager.openTextMenuInput("Choose monster for " + taskName);
+		for (TaskVariant variant : definition.getVariants())
+		{
+			input.option(variant.getName(), () -> selectVariant(
+				requestedTask, requestedGeneration, variant));
+		}
+		input.onClose(() -> variantMenuOpen = false).build();
+	}
+
+	private void selectVariant(String requestedTask, long requestedGeneration, TaskVariant variant)
+	{
+		if (!Objects.equals(taskName, requestedTask) || taskGeneration != requestedGeneration)
+		{
+			return;
+		}
+
+		selectedVariant = variant;
+		taskGeneration++;
+		recommendations = Collections.emptySet();
+		optionalOverrideVisible = false;
 		refreshInfoBoxes();
 		requestRecommendations();
 	}
@@ -273,7 +328,8 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void requestRecommendations()
 	{
 		TaskDefinition definition = TaskCatalog.get(taskName);
-		String wikiPage = definition == null ? taskName : definition.getWikiPage();
+		TaskVariant variant = getActiveVariant(definition);
+		String wikiPage = variant == null ? taskName : variant.getWikiPage();
 
 		long requestedGeneration = taskGeneration;
 		wikiDropTableClient.lookup(wikiPage, result ->
@@ -292,6 +348,15 @@ public class SlayerItemRemindersPlugin extends Plugin
 		});
 	}
 
+	private TaskVariant getActiveVariant(TaskDefinition definition)
+	{
+		if (definition == null)
+		{
+			return null;
+		}
+		return selectedVariant == null ? definition.getDefaultVariant() : selectedVariant;
+	}
+
 	private void refreshInfoBoxes()
 	{
 		if (taskName == null || bankOpen)
@@ -301,10 +366,11 @@ public class SlayerItemRemindersPlugin extends Plugin
 		}
 
 		TaskDefinition definition = TaskCatalog.get(taskName);
+		TaskVariant variant = getActiveVariant(definition);
 		List<ReminderItem> missingRequired = Collections.emptyList();
-		if (!dismissed && reminderWindowActive && definition != null)
+		if (!dismissed && reminderWindowActive && variant != null)
 		{
-			missingRequired = definition.getRequiredItems().stream()
+			missingRequired = variant.getRequiredItems().stream()
 				.filter(item -> !item.isPresent(client))
 				.collect(Collectors.toList());
 		}
@@ -365,13 +431,20 @@ public class SlayerItemRemindersPlugin extends Plugin
 		String itemLines = items.stream()
 			.map(item -> item.getName())
 			.collect(Collectors.joining("<br>"));
-		return category + " for " + taskName + "<br>" + itemLines;
+		TaskDefinition definition = TaskCatalog.get(taskName);
+		TaskVariant variant = getActiveVariant(definition);
+		String target = definition != null && definition.hasMultipleVariants() && variant != null
+			? taskName + " (" + variant.getName() + ")"
+			: taskName;
+		return category + " for " + target + "<br>" + itemLines;
 	}
 
 	private void clearAssignment()
 	{
 		taskName = null;
 		taskGeneration++;
+		selectedVariant = null;
+		variantMenuOpen = false;
 		recommendations = Collections.emptySet();
 		dismissed = false;
 		optionalOverrideVisible = false;

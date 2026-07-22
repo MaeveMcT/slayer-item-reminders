@@ -3,8 +3,11 @@
 ## Relevant Slayer task
 A Slayer task for which the plugin knows about one or more items a player should bring.
 
+## Task variant
+A specific monster that can satisfy a broader Slayer assignment. Each curated variant has its own display name, Wiki page, and required-item rules.
+
 ## Canonical monster
-The ordinary monster uniquely identified by a non-generic Slayer task and represented by the locally mapped OSRS Wiki page used for its drop-table lookup.
+The ordinary default variant used when the player has not selected another monster for an ambiguous task.
 
 ## Generic task
 A broad Slayer assignment that can be completed using multiple materially different monsters, such as Birds, Dogs, or Bears. The MVP looks up its task-name Wiki page, which may be less accurate than a player-selected monster variant.

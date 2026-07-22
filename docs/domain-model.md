@@ -22,8 +22,10 @@ An assignment can be synchronized silently, newly assigned, updated, completed, 
 
 Local knowledge associated with a task name:
 
-- Optional canonical OSRS Wiki monster page
-- Zero or more required-item conditions
+- One or more curated monster variants
+- A canonical default variant
+
+Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. Greater demons initially supports Greater demon, Tormented Demon, K'ril Tsutsaroth, and Skotizo.
 
 The MVP defines required-item conditions only for:
 
@@ -47,7 +49,7 @@ A condition is satisfied when any equivalent item has a positive quantity in inv
 
 ### Drop-table analysis
 
-For a mapped canonical monster, Wiki data is reduced to two sets:
+For the active monster variant, Wiki data is reduced to two sets:
 
 - Distinct herb-sack-compatible herb items
 - Distinct seed-box-compatible seed items
@@ -91,12 +93,13 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 | New task assignment | Clear old state, enter `ACTIVE`, start five-minute window, evaluate local rules, start/reuse Wiki lookup |
 | Ordinary task-count change | Update assignment count without starting a new lifecycle |
 | Regular bank/deposit box opens | Enter `BANKING`; hide both infoboxes |
-| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart five-minute window, reevaluate items, start/reuse Wiki lookup |
+| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart five-minute window, and prompt for a variant when the task is ambiguous and unresolved; otherwise reevaluate items and start/reuse the Wiki lookup |
 | Inventory/equipment changes while active | Reevaluate both categories |
 | Dismiss selected on either infobox | Enter `DISMISSED`; hide both infoboxes |
 | Five-minute window expires | Enter `TIMED_OUT`; hide both infoboxes |
 | Wiki result returns for current assignment | Store session result and immediately update/show optional infobox, even if the earlier reminder was dismissed |
-| Wiki result returns for an old assignment | Ignore it |
+| Player selects a task variant | Invalidate older lookup generations and immediately evaluate the selected variant |
+| Wiki result returns for an old assignment or variant | Ignore it |
 | Wiki lookup fails or exceeds 30 seconds | Debug-log and leave optional recommendations unavailable |
 | Task completed, cancelled, or replaced | Immediately remove both infoboxes; replacement then starts a new assignment lifecycle |
 
@@ -106,7 +109,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 - No Wiki request blocks the RuneLite client thread.
 - At most one required and one optional infobox exist.
 - Both infoboxes always refer to the same current assignment.
-- An asynchronous response cannot affect a different or completed assignment.
+- An asynchronous response cannot affect a different assignment, completed assignment, or superseded variant selection.
 - A manual dismissal normally wins until bank close or a new assignment; a newly returned optional result is the intentional MVP exception.
 - The plugin never shows reminders while a supported bank interface is open.
 - A task with no missing required items and no derived optional recommendations produces no infobox.
@@ -126,7 +129,8 @@ The OSRS Wiki is an asynchronous third-party dependency:
 
 ## Deferred work
 
-- Generic-task monster discovery and player-selectable variants
+- Broader curated variant coverage and generic-task monster discovery
+- Optional remembered variant preferences
 - Persistent stale-while-revalidate Wiki cache
 - Consumable quantities based on remaining task count
 - Group Ironman shared storage as a bank trigger

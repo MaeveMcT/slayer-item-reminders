@@ -58,7 +58,11 @@ final class TaskCatalog
 		wiki(tasks, "Frost dragons", "Frost dragon");
 		wiki(tasks, "General Graardor", "General Graardor");
 		wiki(tasks, "The Giant Mole", "Giant Mole");
-		wiki(tasks, "Greater demons", "Greater demon");
+		variants(tasks, "Greater demons",
+			new TaskVariant("Greater demon", "Greater demon"),
+			new TaskVariant("Tormented Demon", "Tormented Demon"),
+			new TaskVariant("K'ril Tsutsaroth", "K'ril Tsutsaroth"),
+			new TaskVariant("Skotizo", "Skotizo"));
 		wiki(tasks, "Green dragons", "Green dragon");
 		wiki(tasks, "The Grotesque Guardians", "Grotesque Guardians");
 		wiki(tasks, "Gryphons", "Gryphon");
@@ -122,11 +126,13 @@ final class TaskCatalog
 		wiki(tasks, "TzKal-Zuk", "TzKal-Zuk");
 		wiki(tasks, "Zulrah", "Zulrah");
 
-		tasks.put(key("Gargoyles"), new TaskDefinition("Gargoyle", Collections.singletonList(
-			new ReminderItem("Rock hammer or rock thrownhammer",
-				ItemID.SLAYER_ROCK_HAMMER, ItemID.SLAYER_ROCK_THROWNHAMMER))));
-		tasks.put(key("Lizards"), new TaskDefinition("Desert lizard", Collections.singletonList(
-			new ReminderItem("Ice cooler", ItemID.SLAYER_ICY_WATER))));
+		tasks.put(key("Gargoyles"), new TaskDefinition(new TaskVariant(
+			"Gargoyle", "Gargoyle", Collections.singletonList(
+				new ReminderItem("Rock hammer or rock thrownhammer",
+					ItemID.SLAYER_ROCK_HAMMER, ItemID.SLAYER_ROCK_THROWNHAMMER)))));
+		tasks.put(key("Lizards"), new TaskDefinition(new TaskVariant(
+			"Desert lizard", "Desert lizard", Collections.singletonList(
+				new ReminderItem("Ice cooler", ItemID.SLAYER_ICY_WATER)))));
 		TASKS = Collections.unmodifiableMap(tasks);
 	}
 
@@ -141,7 +147,12 @@ final class TaskCatalog
 
 	private static void wiki(Map<String, TaskDefinition> tasks, String taskName, String wikiPage)
 	{
-		tasks.put(key(taskName), new TaskDefinition(wikiPage, Collections.emptyList()));
+		tasks.put(key(taskName), new TaskDefinition(new TaskVariant(wikiPage, wikiPage)));
+	}
+
+	private static void variants(Map<String, TaskDefinition> tasks, String taskName, TaskVariant... variants)
+	{
+		tasks.put(key(taskName), new TaskDefinition(variants));
 	}
 
 	private static String key(String taskName)
