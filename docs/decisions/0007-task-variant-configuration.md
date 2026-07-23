@@ -1,13 +1,13 @@
 # ADR 0007: Expose current task variant in plugin configuration
 
-- Status: Accepted
+- Status: Superseded by ADR 0008
 - Date: 2026-07-23
 
 ## Context
 
 ADR 0006 introduced a chatbox menu for ambiguous assignments. Players also need to inspect and change the active variant without returning to a bank or waiting for that prompt.
 
-RuneLite configuration enum choices are static, so the configuration lists the curated variants known to the plugin rather than generating a task-specific list at runtime.
+RuneLite configuration enum choices are static, so this decision initially listed the curated variants known to the plugin rather than generating a task-specific list at runtime.
 
 ## Decision
 

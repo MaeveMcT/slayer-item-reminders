@@ -23,9 +23,10 @@ An assignment can be synchronized silently, newly assigned, updated, completed, 
 Local knowledge associated with a task name:
 
 - One or more curated monster variants
+- Monster variants discovered from the OSRS Wiki's Slayer task page
 - A canonical default variant
 
-Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. Greater demons initially supports Greater demon, Tormented Demon, K'ril Tsutsaroth, and Skotizo.
+Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. Curated entries take precedence over discovered entries so local required-item rules are retained. Greater demons initially curates Greater demon, Tormented Demon, K'ril Tsutsaroth, and Skotizo; additional monsters in its Wiki variants table are discovered at runtime.
 
 The MVP defines required-item conditions only for:
 
@@ -72,6 +73,8 @@ There are at most two infoboxes:
 
 Both tooltips identify the current Slayer task. Either infobox provides RuneLite's standard **Shift-right-click → Dismiss** menu action, which dismisses both.
 
+The sidebar panel identifies the current assignment and provides a RuneLite-native text filter above a scrollable list of styled variant rows. It first shows curated/default choices, then refreshes with Wiki-discovered variants. Selecting a row immediately updates the assignment-scoped variant.
+
 ## Lifecycle state
 
 The plugin tracks shared presentation state for the current assignment:
@@ -90,15 +93,15 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 | Event | Result |
 | --- | --- |
 | Login/plugin startup with existing task | Synchronize assignment in `SILENT`; show nothing |
-| New task assignment | Clear old state, enter `ACTIVE`, start five-minute window, evaluate local rules, start/reuse Wiki lookup |
+| New task assignment | Clear old state, enter `ACTIVE`, start the five-minute window, evaluate the canonical variant, and discover variants in parallel; open the sidebar panel when multiple variants are found |
 | Ordinary task-count change | Update assignment count without starting a new lifecycle |
 | Regular bank/deposit box opens | Enter `BANKING`; hide both infoboxes |
-| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart five-minute window, and prompt for a variant when the task is ambiguous and unresolved; otherwise reevaluate items and start/reuse the Wiki lookup |
+| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart the five-minute window, discover task variants, and open the sidebar panel when multiple variants exist and none is selected; otherwise reevaluate items and start/reuse the drop-table lookup |
 | Inventory/equipment changes while active | Reevaluate both categories |
 | Dismiss selected on either infobox | Enter `DISMISSED`; hide both infoboxes |
 | Five-minute window expires | Enter `TIMED_OUT`; hide both infoboxes |
 | Wiki result returns for current assignment | Store session result and immediately update/show optional infobox, even if the earlier reminder was dismissed |
-| Player selects a task variant from the chatbox menu or plugin configuration | Invalidate older lookup generations and immediately evaluate the selected variant |
+| Player selects a task variant from the sidebar panel | Invalidate older lookup generations and immediately evaluate the selected variant |
 | Wiki result returns for an old assignment or variant | Ignore it |
 | Wiki lookup fails or exceeds 30 seconds | Debug-log and leave optional recommendations unavailable |
 | Task completed, cancelled, or replaced | Immediately remove both infoboxes; replacement then starts a new assignment lifecycle |
@@ -122,15 +125,17 @@ The OSRS Wiki is an asynchronous third-party dependency:
 - Apply a 30-second timeout.
 - Send an identifiable User-Agent.
 - Parse a stable API response rather than scraping visual page layout where possible.
-- Keep successful derived results in memory for the current RuneLite session.
-- Deduplicate concurrent lookups for the same canonical monster.
+- Discover variants from the `Monster variants` section of the assignment's `Slayer task/<task>` Wiki page.
+- Keep successful variant and derived drop-table results in memory for the current RuneLite session.
+- Deduplicate concurrent lookups for the same task or canonical monster.
 - Do not persist a cache in the MVP.
 - Fail silently to the player and log diagnostics at debug level.
 
 ## Deferred work
 
-- Broader curated variant coverage and generic-task monster discovery
-- Optional remembered variant preferences and dynamically task-specific configuration choices
+- Broader curated variant coverage and more robust structured variant sources
+- Optional remembered variant preferences
+- Grouping or ranking for very large variant lists
 - Persistent stale-while-revalidate Wiki cache
 - Consumable quantities based on remaining task count
 - Group Ironman shared storage as a bank trigger

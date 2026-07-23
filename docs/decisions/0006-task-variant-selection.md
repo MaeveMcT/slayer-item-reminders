@@ -1,6 +1,6 @@
 # ADR 0006: Explicit selection for ambiguous Slayer tasks
 
-- Status: Accepted
+- Status: Superseded by ADR 0011
 - Date: 2026-07-19
 
 ## Context

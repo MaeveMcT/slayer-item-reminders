@@ -1,14 +1,19 @@
 package com.slayeritemreminders;
 
 import java.awt.Color;
+import java.awt.image.BufferedImage;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import javax.swing.SwingUtilities;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -31,11 +36,12 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.InfoBoxMenuClicked;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.game.chatbox.ChatboxPanelManager;
-import net.runelite.client.game.chatbox.ChatboxTextMenuInput;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
+import net.runelite.client.util.ImageUtil;
 
 @Slf4j
 @PluginDescriptor(
@@ -63,7 +69,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private WikiDropTableClient wikiDropTableClient;
 
 	@Inject
-	private ChatboxPanelManager chatboxPanelManager;
+	private WikiTaskVariantClient wikiTaskVariantClient;
 
 	@Inject
 	private SlayerItemRemindersConfig config;
@@ -71,16 +77,23 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 
+	@Inject
+	private ClientToolbar clientToolbar;
+
+	@Inject
+	private SlayerItemRemindersPanel panel;
+
+	private NavigationButton navigationButton;
 	private String taskName;
 	private boolean suppressTaskReminder;
 	private boolean bankOpen;
 	private boolean reminderWindowActive;
 	private boolean dismissed;
 	private boolean optionalOverrideVisible;
-	private boolean variantPromptPending;
-	private boolean variantMenuOpen;
 	private long taskGeneration;
 	private TaskVariant selectedVariant;
+	private List<TaskVariant> availableVariants = Collections.emptyList();
+	private boolean variantsLoading;
 	private Instant reminderExpiresAt;
 	private Set<RecommendedItem> recommendations = Collections.emptySet();
 	private ReminderInfoBox requiredInfoBox;
@@ -89,6 +102,17 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		panel.setSelectionHandler((task, variant) ->
+			clientThread.invoke(() -> selectVariantFromPanel(task, variant)));
+		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/panel_icon.png");
+		navigationButton = NavigationButton.builder()
+			.tooltip("Slayer Item Reminders")
+			.icon(icon)
+			.priority(7)
+			.panel(panel)
+			.build();
+		clientToolbar.addNavigation(navigationButton);
+		updateVariantPanel();
 		log.debug("Slayer Item Reminders started");
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
@@ -100,7 +124,11 @@ public class SlayerItemRemindersPlugin extends Plugin
 	protected void shutDown()
 	{
 		clearAssignment();
+		clientToolbar.removeNavigation(navigationButton);
+		navigationButton = null;
+		panel.setSelectionHandler((task, variant) -> { });
 		wikiDropTableClient.reset();
+		wikiTaskVariantClient.reset();
 		bankOpen = false;
 		suppressTaskReminder = false;
 		log.debug("Slayer Item Reminders stopped");
@@ -116,7 +144,6 @@ public class SlayerItemRemindersPlugin extends Plugin
 			case CONNECTION_LOST:
 				suppressTaskReminder = true;
 				bankOpen = false;
-				variantPromptPending = false;
 				removeInfoBoxes();
 				break;
 			case LOGGED_IN:
@@ -180,16 +207,6 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
-		if (variantPromptPending && !bankOpen && taskName != null)
-		{
-			variantPromptPending = false;
-			TaskDefinition definition = TaskCatalog.get(taskName);
-			if (definition != null && definition.hasMultipleVariants() && selectedVariant == null)
-			{
-				openVariantMenu(definition);
-			}
-		}
-
 		if ((reminderWindowActive || optionalOverrideVisible) && reminderExpiresAt != null
 			&& !Instant.now().isBefore(reminderExpiresAt))
 		{
@@ -210,13 +227,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		}
 
 		TaskDefinition definition = TaskCatalog.get(taskName);
-		TaskVariantChoice choice = config.currentTaskVariant();
-		TaskVariant variant = choice.resolve(taskName, definition);
-		if (choice != TaskVariantChoice.AUTOMATIC && variant == null)
-		{
-			resetVariantConfig();
-		}
-		applyVariantSelection(variant);
+		applyVariantSelection(resolveConfiguredVariant(definition));
 	}
 
 	@Subscribe
@@ -267,14 +278,20 @@ public class SlayerItemRemindersPlugin extends Plugin
 			taskGeneration++;
 			selectedVariant = null;
 			resetVariantConfig();
-			variantPromptPending = false;
-			variantMenuOpen = false;
+			availableVariants = getCuratedOrFallbackVariants(taskName);
+			variantsLoading = false;
+			updateVariantPanel();
 			recommendations = Collections.emptySet();
 			optionalOverrideVisible = false;
 			removeInfoBoxes();
 			if (!suppressTaskReminder)
 			{
 				activateReminderWindow(false);
+				requestVariants(true, false);
+			}
+			else
+			{
+				requestVariants(false, false);
 			}
 		}
 	}
@@ -319,14 +336,12 @@ public class SlayerItemRemindersPlugin extends Plugin
 		reminderWindowActive = true;
 		reminderExpiresAt = Instant.now().plus(REMINDER_DURATION);
 
-		TaskDefinition definition = TaskCatalog.get(taskName);
-		if (offerVariantSelection && definition != null
-			&& definition.hasMultipleVariants() && selectedVariant == null)
+		if (offerVariantSelection && selectedVariant == null)
 		{
 			taskGeneration++;
 			recommendations = Collections.emptySet();
 			refreshInfoBoxes();
-			variantPromptPending = true;
+			requestVariants(true, true);
 			return;
 		}
 
@@ -334,52 +349,108 @@ public class SlayerItemRemindersPlugin extends Plugin
 		requestRecommendations();
 	}
 
-	private void openVariantMenu(TaskDefinition definition)
+	private void requestVariants(boolean openPanelWhenAmbiguous,
+		boolean requestRecommendationsWhenUnambiguous)
 	{
-		if (variantMenuOpen)
-		{
-			return;
-		}
-
-		variantMenuOpen = true;
+		variantsLoading = true;
+		updateVariantPanel();
 		String requestedTask = taskName;
 		long requestedGeneration = taskGeneration;
-		ChatboxTextMenuInput input = chatboxPanelManager.openTextMenuInput("Choose monster for " + taskName);
-		for (TaskVariant variant : definition.getVariants())
+		wikiTaskVariantClient.lookup(requestedTask, wikiVariants ->
 		{
-			input.option(variant.getName(), () -> selectVariant(
-				requestedTask, requestedGeneration, variant));
-		}
-		input.onClose(() -> variantMenuOpen = false).build();
+			if (!Objects.equals(taskName, requestedTask) || taskGeneration != requestedGeneration)
+			{
+				return;
+			}
+
+			TaskDefinition definition = mergeVariants(requestedTask, wikiVariants);
+			availableVariants = definition.getVariants();
+			variantsLoading = false;
+			updateVariantPanel();
+			if (openPanelWhenAmbiguous && definition.hasMultipleVariants() && selectedVariant == null)
+			{
+				SwingUtilities.invokeLater(() ->
+				{
+					if (navigationButton != null)
+					{
+						clientToolbar.openPanel(navigationButton);
+					}
+				});
+			}
+			else if (requestRecommendationsWhenUnambiguous)
+			{
+				requestRecommendations();
+			}
+		});
 	}
 
-	private void selectVariant(String requestedTask, long requestedGeneration, TaskVariant variant)
+	private List<TaskVariant> getCuratedOrFallbackVariants(String currentTask)
 	{
-		if (!Objects.equals(taskName, requestedTask) || taskGeneration != requestedGeneration)
+		TaskDefinition curated = TaskCatalog.get(currentTask);
+		if (curated != null)
+		{
+			return curated.getVariants();
+		}
+		return Collections.singletonList(new TaskVariant(currentTask, currentTask));
+	}
+
+	private TaskDefinition mergeVariants(String currentTask, List<TaskVariant> wikiVariants)
+	{
+		Map<String, TaskVariant> variants = new LinkedHashMap<>();
+		TaskDefinition curated = TaskCatalog.get(currentTask);
+		if (curated == null)
+		{
+			TaskVariant fallback = new TaskVariant(currentTask, currentTask);
+			variants.put(currentTask.toLowerCase(Locale.ENGLISH), fallback);
+		}
+		else
+		{
+			for (TaskVariant variant : curated.getVariants())
+			{
+				variants.put(variant.getWikiPage().toLowerCase(Locale.ENGLISH), variant);
+			}
+		}
+		for (TaskVariant variant : wikiVariants)
+		{
+			variants.putIfAbsent(variant.getWikiPage().toLowerCase(Locale.ENGLISH), variant);
+		}
+		return new TaskDefinition(variants.values().toArray(new TaskVariant[0]));
+	}
+
+	private void selectVariantFromPanel(String requestedTask, TaskVariant variant)
+	{
+		if (!Objects.equals(taskName, requestedTask))
 		{
 			return;
 		}
+		if (variant == null)
+		{
+			applyVariantSelection(null);
+			resetVariantConfig();
+			return;
+		}
 
-		TaskVariantChoice choice = TaskVariantChoice.from(taskName, variant);
-		if (config.currentTaskVariant() != choice)
+		applyVariantSelection(variant);
+		if (!variant.getWikiPage().equals(config.currentTaskVariant()))
 		{
 			configManager.setConfiguration(
 				SlayerItemRemindersConfig.GROUP,
 				SlayerItemRemindersConfig.CURRENT_TASK_VARIANT_KEY,
-				choice);
+				variant.getWikiPage());
 		}
-		applyVariantSelection(variant);
 	}
 
 	private void applyVariantSelection(TaskVariant variant)
 	{
-		if (selectedVariant == variant)
+		if ((selectedVariant == null && variant == null)
+			|| (selectedVariant != null && variant != null
+				&& selectedVariant.getWikiPage().equalsIgnoreCase(variant.getWikiPage())))
 		{
 			return;
 		}
 
 		selectedVariant = variant;
-		variantPromptPending = false;
+		updateVariantPanel();
 		taskGeneration++;
 		recommendations = Collections.emptySet();
 		optionalOverrideVisible = false;
@@ -390,14 +461,40 @@ public class SlayerItemRemindersPlugin extends Plugin
 		}
 	}
 
+	private TaskVariant resolveConfiguredVariant(TaskDefinition definition)
+	{
+		String configured = config.currentTaskVariant().trim();
+		if (configured.isEmpty())
+		{
+			return null;
+		}
+		if (definition != null)
+		{
+			for (TaskVariant variant : definition.getVariants())
+			{
+				if (configured.equalsIgnoreCase(variant.getName())
+					|| configured.equalsIgnoreCase(variant.getWikiPage()))
+				{
+					return variant;
+				}
+			}
+		}
+		return new TaskVariant(configured, configured);
+	}
+
+	private void updateVariantPanel()
+	{
+		panel.showTask(taskName, availableVariants, selectedVariant, variantsLoading);
+	}
+
 	private void resetVariantConfig()
 	{
-		if (config.currentTaskVariant() != TaskVariantChoice.AUTOMATIC)
+		if (!config.currentTaskVariant().isEmpty())
 		{
 			configManager.setConfiguration(
 				SlayerItemRemindersConfig.GROUP,
 				SlayerItemRemindersConfig.CURRENT_TASK_VARIANT_KEY,
-				TaskVariantChoice.AUTOMATIC);
+				"");
 		}
 	}
 
@@ -426,11 +523,11 @@ public class SlayerItemRemindersPlugin extends Plugin
 
 	private TaskVariant getActiveVariant(TaskDefinition definition)
 	{
-		if (definition == null)
+		if (selectedVariant != null)
 		{
-			return null;
+			return selectedVariant;
 		}
-		return selectedVariant == null ? definition.getDefaultVariant() : selectedVariant;
+		return definition == null ? null : definition.getDefaultVariant();
 	}
 
 	private void refreshInfoBoxes()
@@ -509,7 +606,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			.collect(Collectors.joining("<br>"));
 		TaskDefinition definition = TaskCatalog.get(taskName);
 		TaskVariant variant = getActiveVariant(definition);
-		String target = definition != null && definition.hasMultipleVariants() && variant != null
+		String target = selectedVariant != null && variant != null
 			? taskName + " (" + variant.getName() + ")"
 			: taskName;
 		return category + " for " + target + "<br>" + itemLines;
@@ -521,8 +618,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 		resetVariantConfig();
 		taskGeneration++;
 		selectedVariant = null;
-		variantPromptPending = false;
-		variantMenuOpen = false;
+		availableVariants = Collections.emptyList();
+		variantsLoading = false;
+		updateVariantPanel();
 		recommendations = Collections.emptySet();
 		dismissed = false;
 		optionalOverrideVisible = false;

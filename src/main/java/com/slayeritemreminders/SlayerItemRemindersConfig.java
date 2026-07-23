@@ -13,11 +13,12 @@ public interface SlayerItemRemindersConfig extends Config
 	@ConfigItem(
 		keyName = CURRENT_TASK_VARIANT_KEY,
 		name = "Current task variant",
-		description = "Select the monster you intend to kill for the current Slayer assignment",
-		position = 0
+		description = "The assignment-scoped variant selected in the Slayer Item Reminders panel",
+		position = 0,
+		hidden = true
 	)
-	default TaskVariantChoice currentTaskVariant()
+	default String currentTaskVariant()
 	{
-		return TaskVariantChoice.AUTOMATIC;
+		return "";
 	}
 }
