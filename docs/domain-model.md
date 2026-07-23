@@ -98,7 +98,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 | Dismiss selected on either infobox | Enter `DISMISSED`; hide both infoboxes |
 | Five-minute window expires | Enter `TIMED_OUT`; hide both infoboxes |
 | Wiki result returns for current assignment | Store session result and immediately update/show optional infobox, even if the earlier reminder was dismissed |
-| Player selects a task variant | Invalidate older lookup generations and immediately evaluate the selected variant |
+| Player selects a task variant from the chatbox menu or plugin configuration | Invalidate older lookup generations and immediately evaluate the selected variant |
 | Wiki result returns for an old assignment or variant | Ignore it |
 | Wiki lookup fails or exceeds 30 seconds | Debug-log and leave optional recommendations unavailable |
 | Task completed, cancelled, or replaced | Immediately remove both infoboxes; replacement then starts a new assignment lifecycle |
@@ -130,7 +130,7 @@ The OSRS Wiki is an asynchronous third-party dependency:
 ## Deferred work
 
 - Broader curated variant coverage and generic-task monster discovery
-- Optional remembered variant preferences
+- Optional remembered variant preferences and dynamically task-specific configuration choices
 - Persistent stale-while-revalidate Wiki cache
 - Consumable quantities based on remaining task count
 - Group Ironman shared storage as a bank trigger

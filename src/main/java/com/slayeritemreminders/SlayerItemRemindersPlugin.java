@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -25,7 +26,9 @@ import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.InfoBoxMenuClicked;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.chatbox.ChatboxPanelManager;
@@ -61,6 +64,12 @@ public class SlayerItemRemindersPlugin extends Plugin
 
 	@Inject
 	private ChatboxPanelManager chatboxPanelManager;
+
+	@Inject
+	private SlayerItemRemindersConfig config;
+
+	@Inject
+	private ConfigManager configManager;
 
 	private String taskName;
 	private boolean suppressTaskReminder;
@@ -191,6 +200,26 @@ public class SlayerItemRemindersPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if (!SlayerItemRemindersConfig.GROUP.equals(event.getGroup())
+			|| !SlayerItemRemindersConfig.CURRENT_TASK_VARIANT_KEY.equals(event.getKey())
+			|| taskName == null)
+		{
+			return;
+		}
+
+		TaskDefinition definition = TaskCatalog.get(taskName);
+		TaskVariantChoice choice = config.currentTaskVariant();
+		TaskVariant variant = choice.resolve(taskName, definition);
+		if (choice != TaskVariantChoice.AUTOMATIC && variant == null)
+		{
+			resetVariantConfig();
+		}
+		applyVariantSelection(variant);
+	}
+
+	@Subscribe
 	public void onInfoBoxMenuClicked(InfoBoxMenuClicked event)
 	{
 		if ((event.getInfoBox() == requiredInfoBox || event.getInfoBox() == optionalInfoBox)
@@ -237,6 +266,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		{
 			taskGeneration++;
 			selectedVariant = null;
+			resetVariantConfig();
 			variantPromptPending = false;
 			variantMenuOpen = false;
 			recommendations = Collections.emptySet();
@@ -330,13 +360,45 @@ public class SlayerItemRemindersPlugin extends Plugin
 			return;
 		}
 
+		TaskVariantChoice choice = TaskVariantChoice.from(taskName, variant);
+		if (config.currentTaskVariant() != choice)
+		{
+			configManager.setConfiguration(
+				SlayerItemRemindersConfig.GROUP,
+				SlayerItemRemindersConfig.CURRENT_TASK_VARIANT_KEY,
+				choice);
+		}
+		applyVariantSelection(variant);
+	}
+
+	private void applyVariantSelection(TaskVariant variant)
+	{
+		if (selectedVariant == variant)
+		{
+			return;
+		}
+
 		selectedVariant = variant;
 		variantPromptPending = false;
 		taskGeneration++;
 		recommendations = Collections.emptySet();
 		optionalOverrideVisible = false;
 		refreshInfoBoxes();
-		requestRecommendations();
+		if (reminderWindowActive)
+		{
+			requestRecommendations();
+		}
+	}
+
+	private void resetVariantConfig()
+	{
+		if (config.currentTaskVariant() != TaskVariantChoice.AUTOMATIC)
+		{
+			configManager.setConfiguration(
+				SlayerItemRemindersConfig.GROUP,
+				SlayerItemRemindersConfig.CURRENT_TASK_VARIANT_KEY,
+				TaskVariantChoice.AUTOMATIC);
+		}
 	}
 
 	private void requestRecommendations()
@@ -456,6 +518,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void clearAssignment()
 	{
 		taskName = null;
+		resetVariantConfig();
 		taskGeneration++;
 		selectedVariant = null;
 		variantPromptPending = false;
@@ -485,5 +548,11 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private static boolean isBankGroup(int groupId)
 	{
 		return groupId == InterfaceID.BANKMAIN || groupId == InterfaceID.BANK_DEPOSITBOX;
+	}
+
+	@Provides
+	SlayerItemRemindersConfig provideConfig(ConfigManager manager)
+	{
+		return manager.getConfig(SlayerItemRemindersConfig.class);
 	}
 }
