@@ -11,7 +11,7 @@ The Wiki's `Slayer task/<task name>` pages contain a structured `Monster variant
 
 ## Decision
 
-- Request the current assignment's `Slayer task/<task name>` page through the MediaWiki API after a bank closes.
+- Request the current assignment's `Slayer task/<task name>` page through the MediaWiki API after a bank closes. If that page is missing, try deduplicated singular/plural title candidates before falling back (for example, Cave kraken → Cave krakens).
 - Parse distinct monster links from the first column of the `Monster variants` section.
 - Merge discovered monsters with curated `TaskCatalog` entries, preferring curated entries when names overlap so local required-item rules are retained.
 - Populate the existing chatbox selector from the merged assignment-specific list.
@@ -26,4 +26,5 @@ The Wiki's `Slayer task/<task name>` pages contain a structured `Monster variant
 - Variant discovery remains generic and does not require a Java enum entry.
 - Required-item rules still require curated local knowledge; Wiki discovery only supplies display names and drop-table page targets.
 - Wiki structure changes fail safely but may temporarily leave only curated/default choices.
+- Singular/plural fallback handles naming mismatches without maintaining a task-specific alias table, while preserving the exact game-provided title as the first choice.
 - The standard RuneLite configuration panel cannot provide a dynamic dropdown. Selection remains a dynamic in-game chatbox menu, while configuration offers a generic Wiki-page override.

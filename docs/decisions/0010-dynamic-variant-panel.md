@@ -18,6 +18,7 @@ RuneLite sidebar plugin panels can own ordinary Swing controls and update their 
 - Initially populate the picker with curated variants or a canonical fallback.
 - Refresh it with the merged Wiki-discovered variants when discovery completes.
 - Include an automatic option which uses the assignment's canonical default.
+- Show a RuneLite `LinkBrowser` link to the selected variant's Wiki page, or the canonical page in automatic mode.
 - Apply panel selections through the same assignment-generation and recommendation-refresh path as chatbox selections.
 - Keep the assignment-scoped configuration key as hidden internal state so it remains stable but is no longer presented as an editable text field.
 - Remove the navigation button and panel callback during plugin shutdown.

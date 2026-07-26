@@ -34,6 +34,8 @@ import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.components.IconTextField;
 import net.runelite.client.ui.components.PluginErrorPanel;
 import net.runelite.client.ui.components.shadowlabel.JShadowedLabel;
+import net.runelite.client.util.LinkBrowser;
+import okhttp3.HttpUrl;
 
 @Singleton
 final class SlayerItemRemindersPanel extends PluginPanel
@@ -41,9 +43,11 @@ final class SlayerItemRemindersPanel extends PluginPanel
 	private static final String CONTENT_CARD = "content";
 	private static final String EMPTY_CARD = "empty";
 	private static final String AUTOMATIC = "Automatic (task default)";
+	private static final HttpUrl WIKI_BASE = HttpUrl.get("https://oldschool.runescape.wiki");
 
 	private final JLabel taskLabel = new JShadowedLabel();
 	private final JLabel selectedVariantLabel = new JShadowedLabel();
+	private final JLabel wikiLink = new JShadowedLabel("<html><u>View on OSRS Wiki</u></html>");
 	private final JLabel statusLabel = new JShadowedLabel();
 	private final IconTextField variantSearch = new IconTextField();
 	private final JPanel variantRows = new JPanel(new DynamicGridLayout(0, 1, 0, 4));
@@ -53,6 +57,7 @@ final class SlayerItemRemindersPanel extends PluginPanel
 	private List<TaskVariant> displayedVariants = new ArrayList<>();
 	private TaskVariant selectedVariant;
 	private String displayedTaskName;
+	private String selectedWikiPage;
 	private JPanel taskCard;
 	private boolean rebuilding;
 
@@ -129,6 +134,33 @@ final class SlayerItemRemindersPanel extends PluginPanel
 		selectedVariantLabel.setForeground(Color.WHITE);
 		selectedVariantLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		controls.add(selectedVariantLabel);
+		controls.add(Box.createVerticalStrut(5));
+
+		wikiLink.setFont(FontManager.getRunescapeSmallFont());
+		wikiLink.setForeground(ColorScheme.BRAND_ORANGE);
+		wikiLink.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		wikiLink.setAlignmentX(Component.LEFT_ALIGNMENT);
+		wikiLink.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mouseEntered(MouseEvent event)
+			{
+				wikiLink.setForeground(ColorScheme.PROGRESS_INPROGRESS_COLOR);
+			}
+
+			@Override
+			public void mouseExited(MouseEvent event)
+			{
+				wikiLink.setForeground(ColorScheme.BRAND_ORANGE);
+			}
+
+			@Override
+			public void mousePressed(MouseEvent event)
+			{
+				openSelectedVariantWikiPage();
+			}
+		});
+		controls.add(wikiLink);
 		controls.add(Box.createVerticalStrut(10));
 		controls.add(createCaption("FILTER VARIANTS"));
 		controls.add(Box.createVerticalStrut(6));
@@ -237,6 +269,11 @@ final class SlayerItemRemindersPanel extends PluginPanel
 			String selectedName = selected == null ? AUTOMATIC : selected.getName();
 			selectedVariantLabel.setText(selectedName);
 			selectedVariantLabel.setToolTipText(selectedName);
+			TaskVariant linkedVariant = selected != null ? selected
+				: variants.isEmpty() ? null : variants.get(0);
+			selectedWikiPage = linkedVariant == null ? null : linkedVariant.getWikiPage();
+			wikiLink.setVisible(selectedWikiPage != null);
+			wikiLink.setToolTipText(selectedWikiPage == null ? null : "Open " + selectedWikiPage + " on the OSRS Wiki");
 			variantSearch.setText("");
 			variantSearch.setEditable(!variants.isEmpty());
 			statusLabel.setText(loading ? "Loading Wiki variants…"
@@ -288,6 +325,20 @@ final class SlayerItemRemindersPanel extends PluginPanel
 		}
 		variantRows.revalidate();
 		variantRows.repaint();
+	}
+
+	private void openSelectedVariantWikiPage()
+	{
+		if (selectedWikiPage == null)
+		{
+			return;
+		}
+		String url = WIKI_BASE.newBuilder()
+			.addPathSegment("w")
+			.addPathSegment(selectedWikiPage)
+			.build()
+			.toString();
+		LinkBrowser.browse(url);
 	}
 
 	private boolean isSelected(TaskVariant variant)

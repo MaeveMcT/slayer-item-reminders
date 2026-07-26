@@ -73,7 +73,7 @@ There are at most two infoboxes:
 
 Both tooltips identify the current Slayer task. Either infobox provides RuneLite's standard **Shift-right-click → Dismiss** menu action, which dismisses both.
 
-The sidebar panel identifies the current assignment and provides a RuneLite-native text filter above a scrollable list of styled variant rows. It first shows curated/default choices, then refreshes with Wiki-discovered variants. Selecting a row immediately updates the assignment-scoped variant.
+The sidebar panel identifies the current assignment and provides a RuneLite-native text filter above a scrollable list of styled variant rows. It first shows curated/default choices, then refreshes with Wiki-discovered variants. Selecting a row immediately updates the assignment-scoped variant. A link opens the active variant's OSRS Wiki page through RuneLite's `LinkBrowser`; automatic mode links to the canonical default variant.
 
 ## Lifecycle state
 

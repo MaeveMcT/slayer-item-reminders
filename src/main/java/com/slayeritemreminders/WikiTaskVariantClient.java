@@ -6,8 +6,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javax.inject.Inject;
@@ -63,10 +66,15 @@ final class WikiTaskVariantClient
 		pageListeners = new ArrayList<>();
 		pageListeners.add(listener);
 		listeners.put(taskName, pageListeners);
+		requestCandidate(taskName, taskPageCandidates(taskName), 0);
+	}
 
+	private void requestCandidate(String taskName, List<String> candidates, int candidateIndex)
+	{
+		String candidate = candidates.get(candidateIndex);
 		HttpUrl url = WIKI_API.newBuilder()
 			.addQueryParameter("action", "parse")
-			.addQueryParameter("page", TASK_PAGE_PREFIX + taskName)
+			.addQueryParameter("page", TASK_PAGE_PREFIX + candidate)
 			.addQueryParameter("prop", "wikitext")
 			.addQueryParameter("redirects", "1")
 			.addQueryParameter("format", "json")
@@ -97,6 +105,12 @@ final class WikiTaskVariantClient
 					}
 
 					JsonObject root = gson.fromJson(body.charStream(), JsonObject.class);
+					if (isMissingPage(root))
+					{
+						clientThread.invoke(() -> tryNextCandidate(taskName, candidates, candidateIndex));
+						return;
+					}
+
 					String wikiText = root.getAsJsonObject("parse")
 						.getAsJsonObject("wikitext")
 						.get("*")
@@ -110,6 +124,76 @@ final class WikiTaskVariantClient
 				}
 			}
 		});
+	}
+
+	private void tryNextCandidate(String taskName, List<String> candidates, int candidateIndex)
+	{
+		if (!listeners.containsKey(taskName))
+		{
+			return;
+		}
+
+		int nextIndex = candidateIndex + 1;
+		if (nextIndex < candidates.size())
+		{
+			requestCandidate(taskName, candidates, nextIndex);
+			return;
+		}
+
+		log.debug("No Slayer task Wiki page found for {} using candidates {}", taskName, candidates);
+		complete(taskName, Collections.emptyList());
+	}
+
+	private static boolean isMissingPage(JsonObject root)
+	{
+		if (!root.has("error") || !root.get("error").isJsonObject())
+		{
+			return false;
+		}
+		JsonObject error = root.getAsJsonObject("error");
+		String code = error.has("code") ? error.get("code").getAsString() : "";
+		return "missingtitle".equals(code) || "invalidtitle".equals(code);
+	}
+
+	static List<String> taskPageCandidates(String taskName)
+	{
+		Set<String> candidates = new LinkedHashSet<>();
+		candidates.add(taskName);
+
+		String lowerName = taskName.toLowerCase(Locale.ENGLISH);
+		if (lowerName.endsWith("ies") && taskName.length() > 3)
+		{
+			candidates.add(taskName.substring(0, taskName.length() - 3) + "y");
+		}
+		else if (lowerName.endsWith("s") && taskName.length() > 1)
+		{
+			candidates.add(taskName.substring(0, taskName.length() - 1));
+			if (lowerName.endsWith("es") && taskName.length() > 2)
+			{
+				candidates.add(taskName.substring(0, taskName.length() - 2));
+			}
+		}
+		else if (lowerName.endsWith("y") && taskName.length() > 1
+			&& !isVowel(lowerName.charAt(lowerName.length() - 2)))
+		{
+			candidates.add(taskName.substring(0, taskName.length() - 1) + "ies");
+		}
+		else
+		{
+			candidates.add(taskName + "s");
+			if (lowerName.endsWith("ch") || lowerName.endsWith("sh")
+				|| lowerName.endsWith("x") || lowerName.endsWith("z"))
+			{
+				candidates.add(taskName + "es");
+			}
+		}
+		return Collections.unmodifiableList(new ArrayList<>(candidates));
+	}
+
+	private static boolean isVowel(char character)
+	{
+		return character == 'a' || character == 'e' || character == 'i'
+			|| character == 'o' || character == 'u';
 	}
 
 	void reset()
