@@ -505,6 +505,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		String wikiPage = variant == null ? taskName : variant.getWikiPage();
 
 		long requestedGeneration = taskGeneration;
+		wikiDropTableClient.cancelPendingExcept(wikiPage);
 		wikiDropTableClient.lookup(wikiPage, result ->
 		{
 			if (taskName == null || taskGeneration != requestedGeneration)
@@ -622,6 +623,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		variantsLoading = false;
 		updateVariantPanel();
 		recommendations = Collections.emptySet();
+		wikiDropTableClient.cancelPendingExcept(null);
 		dismissed = false;
 		optionalOverrideVisible = false;
 		reminderWindowActive = false;

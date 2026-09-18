@@ -7,8 +7,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.time.Instant;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -29,6 +32,7 @@ final class WikiDropTableClient
 	private static final HttpUrl WIKI_API = HttpUrl.get("https://oldschool.runescape.wiki/api.php");
 	private static final String USER_AGENT = "slayer-item-reminders/0.1.0 (RuneLite external plugin)";
 	private static final long TIMEOUT_SECONDS = 30;
+	private static final String MAX_LAG_SECONDS = "5";
 
 	private final OkHttpClient httpClient;
 	private final Gson gson;
@@ -36,6 +40,7 @@ final class WikiDropTableClient
 	private final Map<String, Set<RecommendedItem>> sessionResults = new HashMap<>();
 	private final Map<String, List<Consumer<Set<RecommendedItem>>>> listeners = new HashMap<>();
 	private final Map<String, Call> calls = new HashMap<>();
+	private final WikiRequestThrottle requestThrottle = new WikiRequestThrottle();
 
 	@Inject
 	WikiDropTableClient(OkHttpClient httpClient, Gson gson, ClientThread clientThread)
@@ -60,6 +65,11 @@ final class WikiDropTableClient
 			pageListeners.add(listener);
 			return;
 		}
+		if (!requestThrottle.shouldRequest(wikiPage, Instant.now()))
+		{
+			listener.accept(Collections.emptySet());
+			return;
+		}
 
 		pageListeners = new ArrayList<>();
 		pageListeners.add(listener);
@@ -70,6 +80,7 @@ final class WikiDropTableClient
 			.addQueryParameter("page", wikiPage)
 			.addQueryParameter("prop", "text")
 			.addQueryParameter("format", "json")
+			.addQueryParameter("maxlag", MAX_LAG_SECONDS)
 			.build();
 		Request request = new Request.Builder()
 			.url(url)
@@ -83,7 +94,7 @@ final class WikiDropTableClient
 			@Override
 			public void onFailure(Call call, IOException exception)
 			{
-				clientThread.invoke(() -> fail(wikiPage, exception));
+				clientThread.invoke(() -> fail(wikiPage, call, exception));
 			}
 
 			@Override
@@ -104,14 +115,29 @@ final class WikiDropTableClient
 					Set<RecommendedItem> parsed = DropTableParser.parse(html);
 					Set<RecommendedItem> result = Collections.unmodifiableSet(
 						parsed.isEmpty() ? EnumSet.noneOf(RecommendedItem.class) : EnumSet.copyOf(parsed));
-					clientThread.invoke(() -> complete(wikiPage, result));
+					clientThread.invoke(() -> complete(wikiPage, call, result));
 				}
 				catch (Exception exception)
 				{
-					clientThread.invoke(() -> fail(wikiPage, exception));
+					clientThread.invoke(() -> fail(wikiPage, call, exception));
 				}
 			}
 		});
+	}
+
+	void cancelPendingExcept(String wikiPage)
+	{
+		Iterator<Map.Entry<String, Call>> iterator = calls.entrySet().iterator();
+		while (iterator.hasNext())
+		{
+			Map.Entry<String, Call> entry = iterator.next();
+			if (!Objects.equals(entry.getKey(), wikiPage))
+			{
+				iterator.remove();
+				listeners.remove(entry.getKey());
+				entry.getValue().cancel();
+			}
+		}
 	}
 
 	void reset()
@@ -120,11 +146,17 @@ final class WikiDropTableClient
 		calls.clear();
 		listeners.clear();
 		sessionResults.clear();
+		requestThrottle.reset();
 	}
 
-	private void complete(String wikiPage, Set<RecommendedItem> result)
+	private void complete(String wikiPage, Call call, Set<RecommendedItem> result)
 	{
+		if (calls.get(wikiPage) != call)
+		{
+			return;
+		}
 		calls.remove(wikiPage);
+		requestThrottle.recordSuccess(wikiPage);
 		sessionResults.put(wikiPage, result);
 		List<Consumer<Set<RecommendedItem>>> pageListeners = listeners.remove(wikiPage);
 		if (pageListeners != null)
@@ -133,10 +165,15 @@ final class WikiDropTableClient
 		}
 	}
 
-	private void fail(String wikiPage, Exception exception)
+	private void fail(String wikiPage, Call call, Exception exception)
 	{
+		if (calls.get(wikiPage) != call)
+		{
+			return;
+		}
 		calls.remove(wikiPage);
 		listeners.remove(wikiPage);
+		requestThrottle.recordFailure(wikiPage, Instant.now());
 		log.debug("Unable to retrieve OSRS Wiki drop table for {}", wikiPage, exception);
 	}
 }
