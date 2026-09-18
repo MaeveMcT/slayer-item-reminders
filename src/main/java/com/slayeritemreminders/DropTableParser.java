@@ -36,6 +36,16 @@ final class DropTableParser
 		return recommendations;
 	}
 
+	private static boolean isDropsHeading(Object id)
+	{
+		if (id == null)
+		{
+			return false;
+		}
+		String heading = id.toString().toLowerCase(Locale.ENGLISH);
+		return heading.equals("drops") || heading.endsWith("_drops");
+	}
+
 	private static boolean isHerb(String item)
 	{
 		return item.startsWith("grimy ");
@@ -63,7 +73,7 @@ final class DropTableParser
 		{
 			if (tag == HTML.Tag.H2)
 			{
-				inDrops = "Drops".equals(attributes.getAttribute(HTML.Attribute.ID));
+				inDrops = isDropsHeading(attributes.getAttribute(HTML.Attribute.ID));
 			}
 			else if (inDrops && tag == HTML.Tag.TR)
 			{

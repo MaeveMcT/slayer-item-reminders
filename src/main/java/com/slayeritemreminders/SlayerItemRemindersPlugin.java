@@ -116,7 +116,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		log.debug("Slayer Item Reminders started");
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
-			synchronizeTaskSilently();
+			clientThread.invokeLater(this::updateTask);
 		}
 	}
 

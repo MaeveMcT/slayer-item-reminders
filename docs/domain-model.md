@@ -92,7 +92,8 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 
 | Event | Result |
 | --- | --- |
-| Login/plugin startup with existing task | Synchronize assignment in `SILENT`; show nothing |
+| Login with existing task | Synchronize assignment in `SILENT`; show nothing |
+| Plugin enabled while already logged in with an existing task | Enter `ACTIVE`, start the five-minute window, evaluate the canonical variant, and discover variants in parallel |
 | New task assignment | Clear old state, enter `ACTIVE`, start the five-minute window, evaluate the canonical variant, and discover variants in parallel; open the sidebar panel when multiple variants are found |
 | Ordinary task-count change | Update assignment count without starting a new lifecycle |
 | Regular bank/deposit box opens | Enter `BANKING`; hide both infoboxes |

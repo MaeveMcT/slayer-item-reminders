@@ -26,6 +26,21 @@ public class DropTableParserTest
 	}
 
 	@Test
+	public void recommendsHerbSackForQualifiedDropsHeading() throws IOException
+	{
+		String html = "<h2 id=\"Members'_worlds_drops\">Members' worlds drops</h2><table>"
+			+ row("Grimy guam leaf", "1")
+			+ row("Grimy marrentill", "1")
+			+ row("Grimy tarromin", "1")
+			+ row("Grimy harralander", "1")
+			+ "</table><h2 id=\"Trivia\">Trivia</h2>";
+
+		Set<RecommendedItem> recommendations = DropTableParser.parse(html);
+
+		assertTrue(recommendations.contains(RecommendedItem.HERB_SACK));
+	}
+
+	@Test
 	public void ignoresNotedAndIneligibleItems() throws IOException
 	{
 		String html = drops(
