@@ -158,9 +158,13 @@ final class WikiTaskVariantClient
 	static List<String> taskPageCandidates(String taskName)
 	{
 		Set<String> candidates = new LinkedHashSet<>();
+		String lowerName = taskName.toLowerCase(Locale.ENGLISH);
+		if (lowerName.equals("black demon") || lowerName.equals("black demons"))
+		{
+			candidates.add("Black demons");
+		}
 		candidates.add(taskName);
 
-		String lowerName = taskName.toLowerCase(Locale.ENGLISH);
 		if (lowerName.endsWith("ies") && taskName.length() > 3)
 		{
 			candidates.add(taskName.substring(0, taskName.length() - 3) + "y");

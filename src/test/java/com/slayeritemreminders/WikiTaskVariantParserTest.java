@@ -55,6 +55,13 @@ public class WikiTaskVariantParserTest
 	}
 
 	@Test
+	public void usesCanonicalBlackDemonsTaskPageForEitherTaskName()
+	{
+		assertEquals("Black demons", WikiTaskVariantClient.taskPageCandidates("Black demons").get(0));
+		assertEquals("Black demons", WikiTaskVariantClient.taskPageCandidates("Black demon").get(0));
+	}
+
+	@Test
 	public void returnsEmptyListWithoutVariantSection()
 	{
 		assertTrue(WikiTaskVariantParser.parse("==Locations==\nNothing here").isEmpty());
