@@ -64,7 +64,7 @@ Derived recommendations:
 - Four or more eligible herb item types → Herb sack
 - Four or more eligible seed item types → Seed box
 
-All functional open, closed, and cosmetic container variants satisfy their recommendation.
+Players opt in to each recommendation with **Own herb sack** and **Own seed box** config checkboxes. A recommendation is hidden when the player says they do not own that container. All functional open, closed, and cosmetic container variants satisfy an enabled recommendation.
 
 ### Reminder presentation
 
@@ -102,6 +102,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 | Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart the ten-second window, discover task variants, and open the sidebar panel when multiple variants exist and none is selected; otherwise reevaluate items and start/reuse the drop-table lookup |
 | Check selected on a Slayer helmet or enchanted gem | Enter `ACTIVE`, clear dismissal, restart the ten-second window, and reevaluate items |
 | Inventory/equipment changes while active | Reevaluate both categories |
+| Owned-container config changes | Immediately reevaluate optional recommendations |
 | Dismiss selected on either infobox | Enter `DISMISSED`; hide both infoboxes |
 | Ten-second window expires | Enter `TIMED_OUT`; hide both infoboxes |
 | Wiki result returns for current assignment | Store session result and immediately update/show optional infobox, even if the earlier reminder was dismissed |
@@ -119,7 +120,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 - An asynchronous response cannot affect a different assignment, completed assignment, or superseded variant selection.
 - A manual dismissal normally wins until bank close or a new assignment; a newly returned optional result is the intentional MVP exception.
 - The plugin never shows reminders while a supported bank interface is open.
-- A task with no missing required items and no derived optional recommendations produces no infobox.
+- A task with no missing required items and no enabled derived optional recommendations produces no infobox.
 
 ## External boundary
 

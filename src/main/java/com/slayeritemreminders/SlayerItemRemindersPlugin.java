@@ -272,15 +272,21 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (!SlayerItemRemindersConfig.GROUP.equals(event.getGroup())
-			|| !SlayerItemRemindersConfig.CURRENT_TASK_VARIANT_KEY.equals(event.getKey())
-			|| taskName == null)
+		if (!SlayerItemRemindersConfig.GROUP.equals(event.getGroup()) || taskName == null)
 		{
 			return;
 		}
 
-		TaskDefinition definition = TaskCatalog.get(taskName);
-		applyVariantSelection(resolveConfiguredVariant(definition));
+		if (SlayerItemRemindersConfig.CURRENT_TASK_VARIANT_KEY.equals(event.getKey()))
+		{
+			TaskDefinition definition = TaskCatalog.get(taskName);
+			applyVariantSelection(resolveConfiguredVariant(definition));
+		}
+		else if (SlayerItemRemindersConfig.HERB_SACK_KEY.equals(event.getKey())
+			|| SlayerItemRemindersConfig.SEED_BOX_KEY.equals(event.getKey()))
+		{
+			refreshInfoBoxes();
+		}
 	}
 
 	@Subscribe
@@ -618,11 +624,25 @@ public class SlayerItemRemindersPlugin extends Plugin
 		if ((!dismissed && reminderWindowActive) || optionalOverrideVisible)
 		{
 			missingOptional = recommendations.stream()
+				.filter(this::isOwned)
 				.map(RecommendedItem::getReminderItem)
 				.filter(item -> !item.isPresent(client))
 				.collect(Collectors.toList());
 		}
 		updateInfoBox(false, missingOptional);
+	}
+
+	private boolean isOwned(RecommendedItem item)
+	{
+		switch (item)
+		{
+			case HERB_SACK:
+				return config.hasHerbSack();
+			case SEED_BOX:
+				return config.hasSeedBox();
+			default:
+				return false;
+		}
 	}
 
 	private List<ReminderItem> getRequiredItems(TaskVariant variant)

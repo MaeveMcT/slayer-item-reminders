@@ -3,6 +3,8 @@ package com.slayeritemreminders;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -29,6 +31,8 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -70,7 +74,32 @@ public class SlayerItemRemindersStartupTest
 
 		harness.plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry));
 
-		verify(harness.infoBoxManager).addInfoBox(any(ReminderInfoBox.class));
+		verify(harness.infoBoxManager, atLeastOnce()).addInfoBox(any(ReminderInfoBox.class));
+	}
+
+	@Test
+	public void doesNotShowRecommendationsPlayerDoesNotOwn() throws Exception
+	{
+		Harness harness = createHarness(GameState.LOGIN_SCREEN);
+		harness.plugin.startUp();
+		logInAndCheckTask(harness);
+
+		verify(harness.infoBoxManager, never()).addInfoBox(argThat(infoBox ->
+			java.awt.Color.YELLOW.equals(infoBox.getTextColor())));
+	}
+
+	@Test
+	public void onlyShowsRecommendationsPlayerOwns() throws Exception
+	{
+		Harness harness = createHarness(GameState.LOGIN_SCREEN, true, false);
+		harness.plugin.startUp();
+		logInAndCheckTask(harness);
+
+		verify(harness.infoBoxManager).addInfoBox(argThat(infoBox ->
+			java.awt.Color.YELLOW.equals(infoBox.getTextColor())
+				&& "1".equals(infoBox.getText())
+				&& infoBox.getTooltip().contains("Herb sack")
+				&& !infoBox.getTooltip().contains("Seed box")));
 	}
 
 	@Test
@@ -105,10 +134,34 @@ public class SlayerItemRemindersStartupTest
 		harness.plugin.onWidgetLoaded(bankLoaded);
 		harness.plugin.onWidgetClosed(new WidgetClosed(InterfaceID.BANKMAIN, 0, true));
 
-		verify(harness.infoBoxManager).addInfoBox(any(ReminderInfoBox.class));
+		verify(harness.infoBoxManager, atLeastOnce()).addInfoBox(any(ReminderInfoBox.class));
+	}
+
+	private static void logInAndCheckTask(Harness harness)
+	{
+		GameStateChanged loggedIn = new GameStateChanged();
+		loggedIn.setGameState(GameState.LOGGED_IN);
+		harness.plugin.onGameStateChanged(loggedIn);
+
+		Widget widget = mock(Widget.class);
+		when(widget.getItemId()).thenReturn(ItemID.SLAYER_GEM);
+		when(widget.getDynamicChildren()).thenReturn(new Widget[0]);
+		when(harness.client.getWidget(123)).thenReturn(widget);
+		MenuEntry menuEntry = mock(MenuEntry.class);
+		when(menuEntry.getType()).thenReturn(MenuAction.CC_OP);
+		when(menuEntry.getOption()).thenReturn("Check");
+		when(menuEntry.getParam0()).thenReturn(-1);
+		when(menuEntry.getParam1()).thenReturn(123);
+		harness.plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry));
 	}
 
 	private static Harness createHarness(GameState initialState) throws Exception
+	{
+		return createHarness(initialState, false, false);
+	}
+
+	private static Harness createHarness(GameState initialState, boolean hasHerbSack,
+		boolean hasSeedBox) throws Exception
 	{
 		Client client = mock(Client.class);
 		when(client.getGameState()).thenReturn(initialState);
@@ -130,6 +183,13 @@ public class SlayerItemRemindersStartupTest
 		ItemManager itemManager = mock(ItemManager.class);
 		when(itemManager.getImage(anyInt())).thenReturn(mock(AsyncBufferedImage.class));
 		InfoBoxManager infoBoxManager = mock(InfoBoxManager.class);
+		WikiDropTableClient wikiDropTableClient = mock(WikiDropTableClient.class);
+		doAnswer(invocation ->
+		{
+			invocation.<Consumer<Set<RecommendedItem>>>getArgument(1).accept(
+				EnumSet.allOf(RecommendedItem.class));
+			return null;
+		}).when(wikiDropTableClient).lookup(any(String.class), any());
 		WikiTaskVariantClient wikiTaskVariantClient = mock(WikiTaskVariantClient.class);
 		doAnswer(invocation ->
 		{
@@ -140,13 +200,15 @@ public class SlayerItemRemindersStartupTest
 		}).when(wikiTaskVariantClient).lookup(any(String.class), any());
 		SlayerItemRemindersConfig config = mock(SlayerItemRemindersConfig.class);
 		when(config.currentTaskVariant()).thenReturn("");
+		when(config.hasHerbSack()).thenReturn(hasHerbSack);
+		when(config.hasSeedBox()).thenReturn(hasSeedBox);
 
 		SlayerItemRemindersPlugin plugin = new SlayerItemRemindersPlugin();
 		inject(plugin, "client", client);
 		inject(plugin, "clientThread", clientThread);
 		inject(plugin, "itemManager", itemManager);
 		inject(plugin, "infoBoxManager", infoBoxManager);
-		inject(plugin, "wikiDropTableClient", mock(WikiDropTableClient.class));
+		inject(plugin, "wikiDropTableClient", wikiDropTableClient);
 		inject(plugin, "wikiTaskVariantClient", wikiTaskVariantClient);
 		inject(plugin, "wikiRequiredItemClient", mock(WikiRequiredItemClient.class));
 		inject(plugin, "config", config);
