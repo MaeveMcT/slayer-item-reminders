@@ -2,7 +2,6 @@
 
 - Status: Accepted
 - Date: 2026-09-19
-- Amends: ADR 0011
 
 ## Context
 

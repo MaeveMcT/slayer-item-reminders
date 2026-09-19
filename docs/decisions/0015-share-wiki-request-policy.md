@@ -2,7 +2,6 @@
 
 - Status: Accepted
 - Date: 2026-09-16
-- Amends: ADR 0013
 
 ## Context
 
@@ -19,13 +18,13 @@ A global queue, scheduler, request spacing, and persistent failure-cooldown stat
 - Parse JSON and deliver success or failure callbacks on the RuneLite client thread.
 - Return a cancellable handle for each request and suppress callbacks after cancellation.
 - Cancel superseded task-variant and drop-table requests and cancel all client-owned handles during plugin shutdown.
-- Notify listeners with an empty domain result consistently when a request or parser fails.
-- Remove the five-minute failure cooldown introduced by ADR 0013. A later user action may retry a failed non-critical lookup.
+- Let each domain client translate request failure into its own safe result. Required-item and recommendation lookups use empty results; variant discovery reports an unavailable state so the sidebar can distinguish failure from a genuinely empty result.
+- Do not maintain a failure cooldown. A later user action may retry a failed non-critical lookup.
 - Do not add a global scheduler, concurrency queue, or success-rate limiter unless observed traffic demonstrates a need.
 
 ## Consequences
 
-- Shared safeguards have one implementation and one test surface.
+- Shared transport safeguards have one implementation and one test surface.
 - The adapter is stateless apart from each call's cancellation handle and requires no executor lifecycle.
 - The injected OkHttp dispatcher controls ordinary HTTP concurrency.
 - Successful session caching and in-flight deduplication remain the primary load controls.

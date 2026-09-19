@@ -1,12 +1,12 @@
 # Slayer Item Reminders
 
-A standalone RuneLite plugin that reminds players which items to bring for Slayer tasks.
+A standalone RuneLite plugin that reminds players which required and useful items to bring for Slayer tasks.
+
+The plugin shows short-lived required and optional infoboxes after a new assignment, bank visit, or explicit task check. Its sidebar discovers valid monster variants from the OSRS Wiki so recommendations can follow the monster the player intends to fight.
 
 ## Design
 
-- [Domain model](docs/domain-model.md)
-- [Architecture decisions](docs/decisions)
-- [Domain glossary](docs/glossary.md)
+Start with the [documentation index](docs/README.md), then see the [domain model](docs/domain-model.md) for the complete current behavior.
 
 ## Development
 

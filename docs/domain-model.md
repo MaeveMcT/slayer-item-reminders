@@ -2,7 +2,24 @@
 
 ## Purpose
 
-Remind a player about mechanically required and optionally useful items when a Slayer task is assigned or when the player finishes banking.
+Remind a player about mechanically required and optionally useful items at the moments they prepare for a Slayer assignment, without becoming a general combat or gear-planning assistant.
+
+## Product goals
+
+- Surface short, actionable reminders after a new assignment, bank visit, or explicit task check.
+- Keep required items visually distinct from optional loot-container recommendations.
+- Let the player choose the monster they intend to fight for a broad assignment.
+- Discover variant and item knowledge generically from centralized Wiki sources rather than maintaining local monster lists.
+- Degrade safely: preserve reviewed required-item fallbacks, ignore stale responses, and expose unavailable variant discovery without interrupting gameplay.
+- Avoid stealing sidebar focus during login synchronization, banking, hopping, reconnecting, or task checks.
+
+## Non-goals
+
+- Recommending full equipment or inventory setups
+- Predicting combat mechanics or providing encounter assistance
+- Inferring the player's intended variant from nearby or recently fought NPCs
+- Persisting Wiki data or preferred variants between RuneLite sessions
+- Treating banks or storage interfaces beyond regular banks and deposit boxes as reminder triggers
 
 ## Core concepts
 
@@ -118,7 +135,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 - At most one required and one optional infobox exist.
 - Both infoboxes always refer to the same current assignment.
 - An asynchronous response cannot affect a different assignment, completed assignment, or superseded variant selection.
-- A manual dismissal normally wins until bank close or a new assignment; a newly returned optional result is the intentional MVP exception.
+- A manual dismissal normally wins until bank close or a new assignment; a newly returned optional result is the intentional exception.
 - The plugin never shows reminders while a supported bank interface is open.
 - A task with no missing required items and no enabled derived optional recommendations produces no infobox.
 
@@ -137,12 +154,12 @@ The OSRS Wiki is an asynchronous third-party dependency:
 - Keep successful required-item, variant, and derived drop-table results in memory for the current RuneLite session.
 - Deduplicate concurrent lookups for the same task or canonical monster.
 - Cancel pending drop-table and variant lookups when a different assignment or variant supersedes them.
-- Do not persist a cache in the MVP.
+- Do not persist Wiki caches between RuneLite sessions.
 - Fail silently to the player and log diagnostics at debug level.
 
 ## Deferred work
 
-- Broader curated variant coverage and more robust structured variant sources
+- More robust structured variant filtering and sources
 - Optional remembered variant preferences
 - Grouping or ranking for very large variant lists
 - Persistent stale-while-revalidate Wiki cache

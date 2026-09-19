@@ -1,43 +1,40 @@
-# Domain Glossary
+# Domain glossary
 
-## Relevant Slayer task
-A Slayer task for which the plugin knows about one or more items a player should bring.
+## Slayer assignment
+The current game-provided task: its name, remaining count, and optional location. An assignment begins when a genuinely new task is detected and ends when it is completed, cancelled, or replaced.
 
 ## Task variant
-A specific monster that can satisfy a broader Slayer assignment. Each curated variant has its own display name, Wiki page, and required-item rules.
+A specific monster that can satisfy a broader Slayer assignment. A variant has a display name and Wiki page and may have required-item conditions.
 
 ## Canonical monster
-The ordinary default variant used when the player has not selected another monster for an ambiguous task.
+The default task variant used when the player has not explicitly selected another variant or variant discovery is unavailable.
 
-## Generic task
-A broad Slayer assignment that can be completed using multiple materially different monsters, such as Birds, Dogs, or Bears. The MVP looks up its task-name Wiki page, which may be less accurate than a player-selected monster variant.
+## Broad assignment
+A Slayer assignment that can be completed by materially different monsters, such as Blue dragons or Greater demons. The player can select the intended variant in the sidebar.
 
-## Reminder item
-An item associated with a relevant Slayer task. A reminder item is classified as either required or recommended.
+## Item condition
+One or more equivalent items that satisfy one requirement. A condition is satisfied while any equivalent item has a positive quantity in inventory or equipment.
 
 ## Required item
-An item mechanically needed to complete or safely fight a relevant Slayer task. The plugin expects it to be in either the inventory or equipment.
+An item mechanically needed to finish, protect against, or fight the selected task variant.
 
-## Recommended item
-An optional item that improves task convenience or loot collection, such as a herb sack or seed box. Missing it does not prevent completing the task.
+## Optional recommendation
+An item that improves task convenience or loot collection but is not mechanically necessary.
 
 ## Loot-container recommendation
-A recommendation derived from the task monster's drop table. Tasks with substantial herb drops may recommend a herb sack; tasks with substantial seed drops may recommend a seed box. Both owned-container settings are enabled by default, and players can persistently disable either recommendation in the plugin config.
+An optional herb sack or seed box recommendation derived from the selected variant's drop table. A recommendation is shown only when its ownership setting is enabled and the container is absent.
 
-## Satisfied requirement
-A required-item condition for which every needed item is currently present in the inventory or equipment. Satisfaction is not permanent: losing or banking an item makes the condition unsatisfied again.
-
-## Reminder
-A persistent, visible prompt listing items associated with the player's current relevant Slayer task.
+## Reminder window
+The ten-second period after a new assignment, bank close, or explicit task check during which missing-item infoboxes may be shown.
 
 ## Dismissal
-The player intentionally hides the current reminder by clicking it. Dismissal is temporary and is reset by a subsequent bank visit.
+The player intentionally hides both reminder infoboxes through either infobox's menu. Dismissal lasts until the next bank close or new assignment, except that a newly returned optional Wiki result may appear while an earlier reminder is dismissed.
 
 ## Bank visit
-The period from opening through closing a regular bank interface or bank deposit box. The reminder stays hidden while either interface is open. Group Ironman shared storage is outside the MVP.
+The period from opening through closing a regular bank interface or deposit box. Infoboxes remain hidden while the interface is open; closing it resets dismissal and starts a new reminder window.
 
-## Bank close
-The closing of a regular bank interface or bank deposit box. It resets temporary dismissal and re-evaluates whether the player is missing reminder items.
+## Silent synchronization
+Learning an existing assignment during plugin startup, login, hopping, or reconnection without opening the sidebar or starting a reminder window.
 
-## Reminder timeout
-The ten-second period after a new assignment, bank close, or task check during which missing-item reminders may be shown.
+## Variant discovery
+Resolving the monsters that satisfy an assignment from the OSRS Wiki. The assignment's Monster variants table is preferred, structured monster Slayer-category data is the fallback, and the canonical monster remains available if discovery fails.
