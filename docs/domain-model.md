@@ -28,7 +28,7 @@ Local knowledge associated with a task name:
 
 Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. Curated entries take precedence when merging variant identities so local fallback rules are retained. Greater demons initially curates Greater demon, Tormented Demon, K'ril Tsutsaroth, and Skotizo; additional monsters in its Wiki variants table are discovered at runtime.
 
-Required-item knowledge is loaded once per session from the centralized OSRS Wiki `Slayer monsters` table. Its item names are resolved in one batched Wiki Bucket query and expanded through RuneLite's item-variation mapping. The parser preserves explicit compound rules for monsters whose requirements are not one flat set of alternatives. A complete centralized rule takes precedence over its curated fallback.
+Required-item knowledge is loaded once per session from the centralized OSRS Wiki `Slayer monsters` table. Its item names are resolved in one batched Wiki Bucket query and expanded through RuneLite's item-variation mapping. Reviewed gameval IDs handle labels absent from Bucket and preserve exact item states where necessary, such as the lit lantern required for Cave horrors. The parser preserves explicit compound rules for monsters whose requirements are not one flat set of alternatives. A complete centralized rule takes precedence over its curated fallback.
 
 The local catalog retains network-independent fallback rules for:
 

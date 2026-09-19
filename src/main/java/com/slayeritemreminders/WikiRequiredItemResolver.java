@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.ItemVariationMapping;
 
 final class WikiRequiredItemResolver
@@ -52,6 +53,14 @@ final class WikiRequiredItemResolver
 				List<String> resolvedNames = new ArrayList<>();
 				for (String name : group)
 				{
+					Set<Integer> knownIds = knownItemIds(name);
+					if (!knownIds.isEmpty())
+					{
+						resolvedNames.add(name);
+						ids.addAll(knownIds);
+						continue;
+					}
+
 					Set<Integer> itemIds = idsByName.get(key(name));
 					if (itemIds != null && !itemIds.isEmpty())
 					{
@@ -113,6 +122,18 @@ final class WikiRequiredItemResolver
 			}
 		}
 		return idsByName;
+	}
+
+	private static Set<Integer> knownItemIds(String name)
+	{
+		if ("bullseye lantern (lit)".equals(key(name)))
+		{
+			Set<Integer> ids = new LinkedHashSet<>();
+			ids.add(ItemID.BULLSEYE_LANTERN_LIT);
+			ids.add(ItemID.BULLSEYE_LANTERN_LIT_LUNAR_QUEST);
+			return ids;
+		}
+		return Collections.emptySet();
 	}
 
 	private static void addId(Set<Integer> ids, JsonElement value)

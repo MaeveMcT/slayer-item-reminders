@@ -18,8 +18,8 @@ The table is not a fully structured requirement schema. Most required-item cells
 - Parse its table into monster-scoped requirement groups while carrying rowspans to grouped monster variants.
 - Treat ordinary item lists as alternatives within one condition.
 - Preserve explicit compound handling for known non-flat cases, initially Warped Terrorbirds, Cave horrors, and mutated/ancient zygomites.
-- Resolve every distinct item name in one `action=bucket` query against `infobox_item`.
-- Expand resolved IDs through RuneLite's `ItemVariationMapping` so recognized charged, imbued, and cosmetic variants satisfy a condition.
+- Resolve every distinct item name in one `action=bucket` query against `infobox_item`, with reviewed local gameval IDs for table labels that have no matching Bucket `item_name` (initially `Bullseye lantern (lit)`).
+- Expand Bucket-resolved IDs through RuneLite's `ItemVariationMapping` so recognized charged, imbued, and cosmetic variants satisfy a condition. Keep exact local IDs exact when nearby item states are not equivalent, such as lit versus unlit lanterns.
 - Reject an entire monster rule if any required group cannot be resolved.
 - Prefer a complete centralized rule over the local rule. Retain local Gargoyle and Desert lizard rules as offline/failure fallbacks.
 - Apply the existing timeout, `maxlag`, identifiable User-Agent, session cache, and shutdown cancellation policies to both requests.

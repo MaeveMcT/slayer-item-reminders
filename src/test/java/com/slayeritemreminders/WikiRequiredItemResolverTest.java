@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import net.runelite.api.gameval.ItemID;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -45,6 +46,25 @@ public class WikiRequiredItemResolverTest
 		assertEquals("Rock hammer or Rock thrownhammer", reminder.getName());
 		assertTrue(contains(reminder.getItemIds(), 4162));
 		assertTrue(contains(reminder.getItemIds(), 21754));
+	}
+
+	@Test
+	public void resolvesLitBullseyeLanternMissingFromBucketByItsGameId()
+	{
+		WikiRequiredItemRule rule = new WikiRequiredItemRule("Cave horror", Arrays.asList(
+			Collections.singletonList("Witchwood icon"),
+			Collections.singletonList("Bullseye lantern (lit)")));
+		String json = "{\"bucket\":["
+			+ "{\"item_name\":\"Witchwood icon\",\"item_id\":[\"8923\"]}]}";
+
+		Map<String, List<ReminderItem>> result = WikiRequiredItemResolver.resolve(
+			Collections.singletonList(rule), new JsonParser().parse(json).getAsJsonObject());
+
+		List<ReminderItem> reminders = result.get("cave horror");
+		assertEquals(2, reminders.size());
+		assertEquals("Bullseye lantern (lit)", reminders.get(1).getName());
+		assertTrue(contains(reminders.get(1).getItemIds(), ItemID.BULLSEYE_LANTERN_LIT));
+		assertFalse(contains(reminders.get(1).getItemIds(), ItemID.BULLSEYE_LANTERN_UNLIT));
 	}
 
 	@Test
