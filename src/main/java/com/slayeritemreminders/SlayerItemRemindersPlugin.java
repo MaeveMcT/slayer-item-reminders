@@ -120,7 +120,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		log.debug("Slayer Item Reminders started");
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
-			clientThread.invokeLater(this::updateTask);
+			clientThread.invokeLater(() -> updateTaskInternal(false));
 		}
 	}
 
@@ -260,6 +260,11 @@ public class SlayerItemRemindersPlugin extends Plugin
 
 	private void updateTask()
 	{
+		updateTaskInternal(true);
+	}
+
+	private void updateTaskInternal(boolean openVariantPanel)
+	{
 		int amount = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
 		if (amount <= 0)
 		{
@@ -292,7 +297,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			if (!suppressTaskReminder)
 			{
 				activateReminderWindow(false);
-				requestVariants(true, false);
+				requestVariants(openVariantPanel, false);
 			}
 			else
 			{

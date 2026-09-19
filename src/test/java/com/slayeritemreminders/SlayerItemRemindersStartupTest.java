@@ -1,7 +1,10 @@
 package com.slayeritemreminders;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.function.Consumer;
+import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.GameStateChanged;
@@ -22,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -36,6 +40,17 @@ public class SlayerItemRemindersStartupTest
 		harness.plugin.startUp();
 
 		verify(harness.infoBoxManager).addInfoBox(any(ReminderInfoBox.class));
+	}
+
+	@Test
+	public void doesNotOpenVariantPanelWhenEnabledDuringExistingTask() throws Exception
+	{
+		Harness harness = createHarness(GameState.LOGGED_IN);
+
+		harness.plugin.startUp();
+		SwingUtilities.invokeAndWait(() -> { });
+
+		verify(harness.clientToolbar, never()).openPanel(any());
 	}
 
 	@Test
@@ -78,6 +93,14 @@ public class SlayerItemRemindersStartupTest
 		ItemManager itemManager = mock(ItemManager.class);
 		when(itemManager.getImage(anyInt())).thenReturn(mock(AsyncBufferedImage.class));
 		InfoBoxManager infoBoxManager = mock(InfoBoxManager.class);
+		WikiTaskVariantClient wikiTaskVariantClient = mock(WikiTaskVariantClient.class);
+		doAnswer(invocation ->
+		{
+			invocation.<Consumer<java.util.List<TaskVariant>>>getArgument(1).accept(Arrays.asList(
+				new TaskVariant("Gargoyle", "Gargoyle"),
+				new TaskVariant("Dusk", "Dusk")));
+			return null;
+		}).when(wikiTaskVariantClient).lookup(any(String.class), any());
 		SlayerItemRemindersConfig config = mock(SlayerItemRemindersConfig.class);
 		when(config.currentTaskVariant()).thenReturn("");
 
@@ -87,13 +110,14 @@ public class SlayerItemRemindersStartupTest
 		inject(plugin, "itemManager", itemManager);
 		inject(plugin, "infoBoxManager", infoBoxManager);
 		inject(plugin, "wikiDropTableClient", mock(WikiDropTableClient.class));
-		inject(plugin, "wikiTaskVariantClient", mock(WikiTaskVariantClient.class));
+		inject(plugin, "wikiTaskVariantClient", wikiTaskVariantClient);
 		inject(plugin, "wikiRequiredItemClient", mock(WikiRequiredItemClient.class));
 		inject(plugin, "config", config);
 		inject(plugin, "configManager", mock(ConfigManager.class));
-		inject(plugin, "clientToolbar", mock(ClientToolbar.class));
+		ClientToolbar clientToolbar = mock(ClientToolbar.class);
+		inject(plugin, "clientToolbar", clientToolbar);
 		inject(plugin, "panel", new SlayerItemRemindersPanel());
-		return new Harness(plugin, infoBoxManager);
+		return new Harness(plugin, infoBoxManager, clientToolbar);
 	}
 
 	private static void inject(Object target, String fieldName, Object value) throws Exception
@@ -107,11 +131,14 @@ public class SlayerItemRemindersStartupTest
 	{
 		private final SlayerItemRemindersPlugin plugin;
 		private final InfoBoxManager infoBoxManager;
+		private final ClientToolbar clientToolbar;
 
-		private Harness(SlayerItemRemindersPlugin plugin, InfoBoxManager infoBoxManager)
+		private Harness(SlayerItemRemindersPlugin plugin, InfoBoxManager infoBoxManager,
+			ClientToolbar clientToolbar)
 		{
 			this.plugin = plugin;
 			this.infoBoxManager = infoBoxManager;
+			this.clientToolbar = clientToolbar;
 		}
 	}
 }
