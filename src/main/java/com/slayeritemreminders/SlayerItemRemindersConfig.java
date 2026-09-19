@@ -20,7 +20,7 @@ public interface SlayerItemRemindersConfig extends Config
 	)
 	default boolean hasHerbSack()
 	{
-		return false;
+		return true;
 	}
 
 	@ConfigItem(
@@ -31,7 +31,7 @@ public interface SlayerItemRemindersConfig extends Config
 	)
 	default boolean hasSeedBox()
 	{
-		return false;
+		return true;
 	}
 
 	@ConfigItem(

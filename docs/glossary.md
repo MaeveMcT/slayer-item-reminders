@@ -22,7 +22,7 @@ An item mechanically needed to complete or safely fight a relevant Slayer task. 
 An optional item that improves task convenience or loot collection, such as a herb sack or seed box. Missing it does not prevent completing the task.
 
 ## Loot-container recommendation
-A recommendation derived from the task monster's drop table. Tasks with substantial herb drops may recommend a herb sack; tasks with substantial seed drops may recommend a seed box. The player must mark the relevant container as owned in the plugin config before its reminders are shown.
+A recommendation derived from the task monster's drop table. Tasks with substantial herb drops may recommend a herb sack; tasks with substantial seed drops may recommend a seed box. Both owned-container settings are enabled by default, and players can persistently disable either recommendation in the plugin config.
 
 ## Satisfied requirement
 A required-item condition for which every needed item is currently present in the inventory or equipment. Satisfaction is not permanent: losing or banking an item makes the condition unsatisfied again.

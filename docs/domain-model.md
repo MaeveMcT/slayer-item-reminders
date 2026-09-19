@@ -64,7 +64,7 @@ Derived recommendations:
 - Four or more eligible herb item types → Herb sack
 - Four or more eligible seed item types → Seed box
 
-Players opt in to each recommendation with **Own herb sack** and **Own seed box** config checkboxes. A recommendation is hidden when the player says they do not own that container. All functional open, closed, and cosmetic container variants satisfy an enabled recommendation.
+The **Own herb sack** and **Own seed box** config checkboxes are enabled by default. A player's disabled choice persists through RuneLite configuration, and its recommendation remains hidden until re-enabled. All functional open, closed, and cosmetic container variants satisfy an enabled recommendation.
 
 ### Reminder presentation
 
