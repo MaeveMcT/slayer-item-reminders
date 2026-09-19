@@ -58,11 +58,7 @@ final class TaskCatalog
 		wiki(tasks, "Frost dragons", "Frost dragon");
 		wiki(tasks, "General Graardor", "General Graardor");
 		wiki(tasks, "The Giant Mole", "Giant Mole");
-		variants(tasks, "Greater demons",
-			new TaskVariant("Greater demon", "Greater demon"),
-			new TaskVariant("Tormented Demon", "Tormented Demon"),
-			new TaskVariant("K'ril Tsutsaroth", "K'ril Tsutsaroth"),
-			new TaskVariant("Skotizo", "Skotizo"));
+		wiki(tasks, "Greater demons", "Greater demon");
 		wiki(tasks, "Green dragons", "Green dragon");
 		wiki(tasks, "The Grotesque Guardians", "Grotesque Guardians");
 		wiki(tasks, "Gryphons", "Gryphon");
@@ -150,10 +146,6 @@ final class TaskCatalog
 		tasks.put(key(taskName), new TaskDefinition(new TaskVariant(wikiPage, wikiPage)));
 	}
 
-	private static void variants(Map<String, TaskDefinition> tasks, String taskName, TaskVariant... variants)
-	{
-		tasks.put(key(taskName), new TaskDefinition(variants));
-	}
 
 	private static String key(String taskName)
 	{

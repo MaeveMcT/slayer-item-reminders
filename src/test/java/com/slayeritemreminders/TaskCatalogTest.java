@@ -10,15 +10,14 @@ import static org.junit.Assert.assertTrue;
 public class TaskCatalogTest
 {
 	@Test
-	public void greaterDemonsOffersCuratedVariants()
+	public void greaterDemonsKeepsOnlyCanonicalFallback()
 	{
 		TaskDefinition definition = TaskCatalog.get("Greater demons");
 
 		assertNotNull(definition);
-		assertTrue(definition.hasMultipleVariants());
+		assertFalse(definition.hasMultipleVariants());
 		assertEquals("Greater demon", definition.getDefaultVariant().getName());
-		assertEquals(4, definition.getVariants().size());
-		assertEquals("Tormented Demon", definition.getVariants().get(1).getWikiPage());
+		assertEquals(1, definition.getVariants().size());
 	}
 
 	@Test

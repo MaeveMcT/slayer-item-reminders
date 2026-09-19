@@ -28,6 +28,22 @@ public class WikiTaskVariantParserTest
 	}
 
 	@Test
+	public void parsesEveryMonsterLinkedInOneCell()
+	{
+		String wikiText = "==Monster variants==\n"
+			+ "{| class=\"wikitable\"\n!Monster\n!Location\n"
+			+ "|-\n|[[Dagannoth Prime]]\n[[Dagannoth Rex]]\n\n[[Dagannoth Supreme]]\n"
+			+ "|[[Waterbirth Island Dungeon]]\n|}\n";
+
+		List<TaskVariant> variants = WikiTaskVariantParser.parse(wikiText);
+
+		assertEquals(3, variants.size());
+		assertEquals("Dagannoth Prime", variants.get(0).getWikiPage());
+		assertEquals("Dagannoth Rex", variants.get(1).getWikiPage());
+		assertEquals("Dagannoth Supreme", variants.get(2).getWikiPage());
+	}
+
+	@Test
 	public void parsesCaveKrakenBossVariant()
 	{
 		String wikiText = "==Monster Variants==\n"

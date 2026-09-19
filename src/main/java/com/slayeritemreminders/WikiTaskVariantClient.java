@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
@@ -20,8 +21,8 @@ final class WikiTaskVariantClient
 	private static final String TASK_PAGE_PREFIX = "Slayer task/";
 
 	private final WikiRequestManager requestManager;
-	private final Map<String, List<TaskVariant>> sessionResults = new HashMap<>();
-	private final Map<String, List<Consumer<List<TaskVariant>>>> listeners = new HashMap<>();
+	private final Map<String, TaskVariantDiscoveryResult> sessionResults = new HashMap<>();
+	private final Map<String, List<Consumer<TaskVariantDiscoveryResult>>> listeners = new HashMap<>();
 	private final Map<String, WikiRequestManager.RequestHandle> requests = new HashMap<>();
 
 	@Inject
@@ -30,16 +31,16 @@ final class WikiTaskVariantClient
 		this.requestManager = requestManager;
 	}
 
-	void lookup(String taskName, Consumer<List<TaskVariant>> listener)
+	void lookup(String taskName, Consumer<TaskVariantDiscoveryResult> listener)
 	{
-		List<TaskVariant> cached = sessionResults.get(taskName);
+		TaskVariantDiscoveryResult cached = sessionResults.get(taskName);
 		if (cached != null)
 		{
 			listener.accept(cached);
 			return;
 		}
 
-		List<Consumer<List<TaskVariant>>> pageListeners = listeners.get(taskName);
+		List<Consumer<TaskVariantDiscoveryResult>> pageListeners = listeners.get(taskName);
 		if (pageListeners != null)
 		{
 			pageListeners.add(listener);
@@ -106,8 +107,9 @@ final class WikiTaskVariantClient
 				requestCandidate(taskName, candidates, nextIndex);
 				return;
 			}
-			log.debug("No Slayer task Wiki page found for {} using candidates {}", taskName, candidates);
-			complete(taskName, Collections.emptyList());
+			log.debug("No Slayer task Wiki page found for {} using candidates {}; using Bucket fallback",
+				taskName, candidates);
+			requestBucket(taskName);
 			return;
 		}
 
@@ -115,12 +117,66 @@ final class WikiTaskVariantClient
 		{
 			String wikiText = root.getAsJsonObject("parse")
 				.getAsJsonObject("wikitext").get("*").getAsString();
-			complete(taskName, WikiTaskVariantParser.parse(wikiText));
+			List<TaskVariant> variants = WikiTaskVariantParser.parse(wikiText);
+			if (variants.isEmpty())
+			{
+				requestBucket(taskName);
+			}
+			else
+			{
+				complete(taskName, TaskVariantDiscoveryResult.loaded(variants));
+			}
+		}
+		catch (Exception exception)
+		{
+			log.debug("Unable to parse Slayer task Wiki page for {}; using Bucket fallback",
+				taskName, exception);
+			requestBucket(taskName);
+		}
+	}
+
+	private void requestBucket(String taskName)
+	{
+		String conditions = taskPageCandidates(taskName).stream()
+			.map(candidate -> "{'slayer_category','" + escapeLua(candidate) + "'}")
+			.collect(Collectors.joining(","));
+		String query = "bucket('infobox_monster').select('name','page_name')"
+			+ ".where(bucket.Or(" + conditions + "))"
+			+ ".limit(500).run()";
+		HttpUrl.Builder url = WikiRequestManager.apiUrl()
+			.addQueryParameter("action", "bucket")
+			.addQueryParameter("query", query)
+			.addQueryParameter("format", "json");
+		WikiRequestManager.RequestHandle request = requestManager.request(url,
+			root -> acceptBucket(taskName, root),
+			exception -> fail(taskName, exception));
+		requests.put(taskName, request);
+	}
+
+	private void acceptBucket(String taskName, JsonObject root)
+	{
+		if (!requests.containsKey(taskName))
+		{
+			return;
+		}
+		try
+		{
+			if (root.has("error"))
+			{
+				throw new IllegalStateException("OSRS Wiki Bucket error: " + root.get("error"));
+			}
+			complete(taskName, TaskVariantDiscoveryResult.loaded(
+				WikiTaskVariantBucketParser.parse(root)));
 		}
 		catch (Exception exception)
 		{
 			fail(taskName, exception);
 		}
+	}
+
+	private static String escapeLua(String value)
+	{
+		return value.replace("\\", "\\\\").replace("'", "\\'");
 	}
 
 	private static boolean isMissingPage(JsonObject root)
@@ -179,15 +235,14 @@ final class WikiTaskVariantClient
 			|| character == 'o' || character == 'u';
 	}
 
-	private void complete(String taskName, List<TaskVariant> result)
+	private void complete(String taskName, TaskVariantDiscoveryResult result)
 	{
 		if (requests.remove(taskName) == null)
 		{
 			return;
 		}
-		List<TaskVariant> immutableResult = Collections.unmodifiableList(new ArrayList<>(result));
-		sessionResults.put(taskName, immutableResult);
-		notifyListeners(taskName, immutableResult);
+		sessionResults.put(taskName, result);
+		notifyListeners(taskName, result);
 	}
 
 	private void fail(String taskName, Exception exception)
@@ -197,12 +252,12 @@ final class WikiTaskVariantClient
 			return;
 		}
 		log.debug("Unable to retrieve Wiki variants for {}", taskName, exception);
-		notifyListeners(taskName, Collections.emptyList());
+		notifyListeners(taskName, TaskVariantDiscoveryResult.unavailable());
 	}
 
-	private void notifyListeners(String taskName, List<TaskVariant> result)
+	private void notifyListeners(String taskName, TaskVariantDiscoveryResult result)
 	{
-		List<Consumer<List<TaskVariant>>> pageListeners = listeners.remove(taskName);
+		List<Consumer<TaskVariantDiscoveryResult>> pageListeners = listeners.remove(taskName);
 		if (pageListeners != null)
 		{
 			pageListeners.forEach(listener -> listener.accept(result));

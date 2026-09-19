@@ -26,7 +26,7 @@ Local knowledge associated with a task name:
 - Monster variants discovered from the OSRS Wiki's Slayer task page
 - A canonical default variant
 
-Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. Curated entries take precedence when merging variant identities so local fallback rules are retained. Greater demons initially curates Greater demon, Tormented Demon, K'ril Tsutsaroth, and Skotizo; additional monsters in its Wiki variants table are discovered at runtime.
+Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. The assignment's canonical monster is retained as a local fallback, while alternatives are discovered at runtime. The assignment-specific Wiki `Monster variants` table is authoritative when available; if no task page or parseable table exists, structured Wiki Bucket monster records matching the assignment's Slayer category provide a fallback. Alternate-game-mode records are excluded and duplicate pages are collapsed.
 
 Required-item knowledge is loaded once per session from the centralized OSRS Wiki `Slayer monsters` table. Its item names are resolved in one batched Wiki Bucket query and expanded through RuneLite's item-variation mapping. Reviewed gameval IDs handle labels absent from Bucket and preserve exact item states where necessary, such as the lit lantern required for Cave horrors. The parser preserves explicit compound rules for monsters whose requirements are not one flat set of alternatives. A complete centralized rule takes precedence over its curated fallback.
 
@@ -75,7 +75,7 @@ There are at most two infoboxes:
 
 Both tooltips identify the current Slayer task. Either infobox provides RuneLite's standard **Shift-right-click → Dismiss** menu action, which dismisses both.
 
-The sidebar panel identifies the current assignment and provides a RuneLite-native text filter above a scrollable list of styled variant rows. It first shows curated/default choices, then refreshes with Wiki-discovered variants. Selecting a row immediately updates the assignment-scoped variant. A link opens the active variant's OSRS Wiki page through RuneLite's `LinkBrowser`; automatic mode links to the canonical default variant.
+The sidebar panel identifies the current assignment and provides a RuneLite-native text filter above a scrollable list of styled variant rows. It first shows the canonical fallback, then refreshes with Wiki-discovered variants. It distinguishes loading, loaded, and unavailable discovery states. Selecting a row immediately updates the assignment-scoped variant. A link opens the active variant's OSRS Wiki page through RuneLite's `LinkBrowser`; automatic mode links to the canonical default variant.
 
 ## Lifecycle state
 
@@ -131,7 +131,8 @@ The OSRS Wiki is an asynchronous third-party dependency:
 - Apply a 30-second timeout, a two-megabyte response limit, and MediaWiki's five-second `maxlag` safeguard.
 - Send an identifiable User-Agent.
 - Parse a stable API response rather than scraping visual page layout where possible.
-- Discover variants from the `Monster variants` section of the assignment's `Slayer task/<task>` Wiki page.
+- Discover variants from every monster link in the first column of the assignment's `Slayer task/<task>` Wiki page's `Monster variants` section.
+- When no task page or parseable variant table exists, query the Wiki Bucket `infobox_monster` Slayer category using normalized singular/plural task candidates.
 - Fetch the `Slayer monsters` list section once and resolve all referenced item names through one batched Bucket query.
 - Keep successful required-item, variant, and derived drop-table results in memory for the current RuneLite session.
 - Deduplicate concurrent lookups for the same task or canonical monster.

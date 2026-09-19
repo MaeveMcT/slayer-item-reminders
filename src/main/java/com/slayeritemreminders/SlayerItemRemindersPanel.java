@@ -71,7 +71,7 @@ final class SlayerItemRemindersPanel extends PluginPanel
 
 		add(buildHeader(), BorderLayout.NORTH);
 		add(buildDisplay(), BorderLayout.CENTER);
-		showTask(null, new ArrayList<>(), null, false);
+		showTask(null, new ArrayList<>(), null, VariantLoadState.LOADED);
 	}
 
 	private JPanel buildHeader()
@@ -240,13 +240,15 @@ final class SlayerItemRemindersPanel extends PluginPanel
 		this.selectionHandler = selectionHandler;
 	}
 
-	void showTask(String taskName, List<TaskVariant> variants, TaskVariant selected, boolean loading)
+	void showTask(String taskName, List<TaskVariant> variants, TaskVariant selected,
+		VariantLoadState loadState)
 	{
 		List<TaskVariant> variantSnapshot = new ArrayList<>(variants);
-		SwingUtilities.invokeLater(() -> rebuild(taskName, variantSnapshot, selected, loading));
+		SwingUtilities.invokeLater(() -> rebuild(taskName, variantSnapshot, selected, loadState));
 	}
 
-	private void rebuild(String taskName, List<TaskVariant> variants, TaskVariant selected, boolean loading)
+	private void rebuild(String taskName, List<TaskVariant> variants, TaskVariant selected,
+		VariantLoadState loadState)
 	{
 		rebuilding = true;
 		try
@@ -276,10 +278,22 @@ final class SlayerItemRemindersPanel extends PluginPanel
 			wikiLink.setToolTipText(selectedWikiPage == null ? null : "Open " + selectedWikiPage + " on the OSRS Wiki");
 			variantSearch.setText("");
 			variantSearch.setEditable(!variants.isEmpty());
-			statusLabel.setText(loading ? "Loading Wiki variants…"
-				: variants.size() + " variant" + (variants.size() == 1 ? "" : "s") + " available");
-			statusLabel.setForeground(loading
-				? ColorScheme.PROGRESS_INPROGRESS_COLOR : ColorScheme.LIGHT_GRAY_COLOR);
+			if (loadState == VariantLoadState.LOADING)
+			{
+				statusLabel.setText("Loading Wiki variants…");
+				statusLabel.setForeground(ColorScheme.PROGRESS_INPROGRESS_COLOR);
+			}
+			else if (loadState == VariantLoadState.UNAVAILABLE)
+			{
+				statusLabel.setText("Wiki variants unavailable; showing fallback");
+				statusLabel.setForeground(ColorScheme.PROGRESS_ERROR_COLOR);
+			}
+			else
+			{
+				statusLabel.setText(variants.size() + " variant"
+					+ (variants.size() == 1 ? "" : "s") + " available");
+				statusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+			}
 			rebuildVariantRows("");
 			display.revalidate();
 		}

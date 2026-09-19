@@ -103,7 +103,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private long taskGeneration;
 	private TaskVariant selectedVariant;
 	private List<TaskVariant> availableVariants = Collections.emptyList();
-	private boolean variantsLoading;
+	private VariantLoadState variantLoadState = VariantLoadState.LOADED;
 	private Instant reminderExpiresAt;
 	private Set<RecommendedItem> recommendations = Collections.emptySet();
 	private Map<String, List<ReminderItem>> wikiRequiredItems = Collections.emptyMap();
@@ -358,7 +358,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			selectedVariant = null;
 			resetVariantConfig();
 			availableVariants = getCuratedOrFallbackVariants(taskName);
-			variantsLoading = false;
+			variantLoadState = VariantLoadState.LOADED;
 			updateVariantPanel();
 			recommendations = Collections.emptySet();
 			optionalOverrideVisible = false;
@@ -433,21 +433,22 @@ public class SlayerItemRemindersPlugin extends Plugin
 		boolean requestRecommendationsWhenUnambiguous)
 	{
 		wikiTaskVariantClient.cancelPendingExcept(taskName);
-		variantsLoading = true;
+		variantLoadState = VariantLoadState.LOADING;
 		updateVariantPanel();
 		String requestedTask = taskName;
 		long requestedGeneration = taskGeneration;
 		long requestedPanelOpenGeneration = panelOpenGeneration;
-		wikiTaskVariantClient.lookup(requestedTask, wikiVariants ->
+		wikiTaskVariantClient.lookup(requestedTask, result ->
 		{
 			if (!Objects.equals(taskName, requestedTask) || taskGeneration != requestedGeneration)
 			{
 				return;
 			}
 
-			TaskDefinition definition = mergeVariants(requestedTask, wikiVariants);
+			TaskDefinition definition = mergeVariants(requestedTask, result.getVariants());
 			availableVariants = definition.getVariants();
-			variantsLoading = false;
+			variantLoadState = result.isUnavailable()
+				? VariantLoadState.UNAVAILABLE : VariantLoadState.LOADED;
 			updateVariantPanel();
 			if (openPanelWhenAmbiguous
 				&& requestedPanelOpenGeneration == panelOpenGeneration
@@ -568,7 +569,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 
 	private void updateVariantPanel()
 	{
-		panel.showTask(taskName, availableVariants, selectedVariant, variantsLoading);
+		panel.showTask(taskName, availableVariants, selectedVariant, variantLoadState);
 	}
 
 	private void resetVariantConfig()
@@ -735,7 +736,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		taskGeneration++;
 		selectedVariant = null;
 		availableVariants = Collections.emptyList();
-		variantsLoading = false;
+		variantLoadState = VariantLoadState.LOADED;
 		updateVariantPanel();
 		recommendations = Collections.emptySet();
 		wikiDropTableClient.cancelPendingExcept(null);

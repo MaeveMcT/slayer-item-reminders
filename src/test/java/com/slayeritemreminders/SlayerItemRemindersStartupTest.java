@@ -145,7 +145,7 @@ public class SlayerItemRemindersStartupTest
 	public void doesNotOpenVariantPanelFromRequestStartedBeforeLogin() throws Exception
 	{
 		Harness harness = createHarness(GameState.LOGIN_SCREEN);
-		AtomicReference<Consumer<java.util.List<TaskVariant>>> variantListener = new AtomicReference<>();
+		AtomicReference<Consumer<TaskVariantDiscoveryResult>> variantListener = new AtomicReference<>();
 		doAnswer(invocation ->
 		{
 			variantListener.set(invocation.getArgument(1));
@@ -160,9 +160,9 @@ public class SlayerItemRemindersStartupTest
 		GameStateChanged loggingIn = new GameStateChanged();
 		loggingIn.setGameState(GameState.LOGGING_IN);
 		harness.plugin.onGameStateChanged(loggingIn);
-		variantListener.get().accept(Arrays.asList(
+		variantListener.get().accept(TaskVariantDiscoveryResult.loaded(Arrays.asList(
 			new TaskVariant("Gargoyle", "Gargoyle"),
-			new TaskVariant("Dusk", "Dusk")));
+			new TaskVariant("Dusk", "Dusk"))));
 		SwingUtilities.invokeAndWait(() -> { });
 
 		verify(harness.clientToolbar, never()).openPanel(any());
@@ -264,9 +264,10 @@ public class SlayerItemRemindersStartupTest
 		WikiTaskVariantClient wikiTaskVariantClient = mock(WikiTaskVariantClient.class);
 		doAnswer(invocation ->
 		{
-			invocation.<Consumer<java.util.List<TaskVariant>>>getArgument(1).accept(Arrays.asList(
-				new TaskVariant("Gargoyle", "Gargoyle"),
-				new TaskVariant("Dusk", "Dusk")));
+			invocation.<Consumer<TaskVariantDiscoveryResult>>getArgument(1).accept(
+				TaskVariantDiscoveryResult.loaded(Arrays.asList(
+					new TaskVariant("Gargoyle", "Gargoyle"),
+					new TaskVariant("Dusk", "Dusk"))));
 			return null;
 		}).when(wikiTaskVariantClient).lookup(any(String.class), any());
 		SlayerItemRemindersConfig config = mock(SlayerItemRemindersConfig.class);
