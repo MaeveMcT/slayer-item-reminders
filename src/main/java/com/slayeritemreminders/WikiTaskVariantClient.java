@@ -1,9 +1,6 @@
 package com.slayeritemreminders;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import java.io.IOException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -12,42 +9,25 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.callback.ClientThread;
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
 
 @Slf4j
 final class WikiTaskVariantClient
 {
-	private static final HttpUrl WIKI_API = HttpUrl.get("https://oldschool.runescape.wiki/api.php");
-	private static final String USER_AGENT = "slayer-item-reminders/0.1.0 (RuneLite external plugin)";
-	private static final long TIMEOUT_SECONDS = 30;
-	private static final String MAX_LAG_SECONDS = "5";
 	private static final String TASK_PAGE_PREFIX = "Slayer task/";
 
-	private final OkHttpClient httpClient;
-	private final Gson gson;
-	private final ClientThread clientThread;
+	private final WikiRequestManager requestManager;
 	private final Map<String, List<TaskVariant>> sessionResults = new HashMap<>();
 	private final Map<String, List<Consumer<List<TaskVariant>>>> listeners = new HashMap<>();
-	private final Map<String, Call> calls = new HashMap<>();
-	private final WikiRequestThrottle requestThrottle = new WikiRequestThrottle();
+	private final Map<String, WikiRequestManager.RequestHandle> requests = new HashMap<>();
 
 	@Inject
-	WikiTaskVariantClient(OkHttpClient httpClient, Gson gson, ClientThread clientThread)
+	WikiTaskVariantClient(WikiRequestManager requestManager)
 	{
-		this.httpClient = httpClient;
-		this.gson = gson;
-		this.clientThread = clientThread;
+		this.requestManager = requestManager;
 	}
 
 	void lookup(String taskName, Consumer<List<TaskVariant>> listener)
@@ -65,94 +45,82 @@ final class WikiTaskVariantClient
 			pageListeners.add(listener);
 			return;
 		}
-		if (!requestThrottle.shouldRequest(taskName, Instant.now()))
-		{
-			listener.accept(Collections.emptyList());
-			return;
-		}
-
 		pageListeners = new ArrayList<>();
 		pageListeners.add(listener);
 		listeners.put(taskName, pageListeners);
 		requestCandidate(taskName, taskPageCandidates(taskName), 0);
 	}
 
+	void cancelPendingExcept(String taskName)
+	{
+		List<String> superseded = new ArrayList<>();
+		for (String pendingTask : requests.keySet())
+		{
+			if (!pendingTask.equals(taskName))
+			{
+				superseded.add(pendingTask);
+			}
+		}
+		for (String pendingTask : superseded)
+		{
+			requests.remove(pendingTask).cancel();
+			listeners.remove(pendingTask);
+		}
+	}
+
+	void reset()
+	{
+		requests.values().forEach(WikiRequestManager.RequestHandle::cancel);
+		requests.clear();
+		listeners.clear();
+		sessionResults.clear();
+	}
+
 	private void requestCandidate(String taskName, List<String> candidates, int candidateIndex)
 	{
 		String candidate = candidates.get(candidateIndex);
-		HttpUrl url = WIKI_API.newBuilder()
+		HttpUrl.Builder url = WikiRequestManager.apiUrl()
 			.addQueryParameter("action", "parse")
 			.addQueryParameter("page", TASK_PAGE_PREFIX + candidate)
 			.addQueryParameter("prop", "wikitext")
 			.addQueryParameter("redirects", "1")
-			.addQueryParameter("format", "json")
-			.addQueryParameter("maxlag", MAX_LAG_SECONDS)
-			.build();
-		Request request = new Request.Builder()
-			.url(url)
-			.header("User-Agent", USER_AGENT)
-			.build();
-		Call call = httpClient.newCall(request);
-		call.timeout().timeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-		calls.put(taskName, call);
-		call.enqueue(new Callback()
-		{
-			@Override
-			public void onFailure(Call call, IOException exception)
-			{
-				clientThread.invoke(() -> fail(taskName, call, exception));
-			}
-
-			@Override
-			public void onResponse(Call call, Response response)
-			{
-				try (ResponseBody body = response.body())
-				{
-					if (!response.isSuccessful() || body == null)
-					{
-						throw new IOException("OSRS Wiki returned HTTP " + response.code());
-					}
-
-					JsonObject root = gson.fromJson(body.charStream(), JsonObject.class);
-					if (isMissingPage(root))
-					{
-						clientThread.invoke(() -> tryNextCandidate(
-							taskName, candidates, candidateIndex, call));
-						return;
-					}
-
-					String wikiText = root.getAsJsonObject("parse")
-						.getAsJsonObject("wikitext")
-						.get("*")
-						.getAsString();
-					List<TaskVariant> result = WikiTaskVariantParser.parse(wikiText);
-					clientThread.invoke(() -> complete(taskName, call, result));
-				}
-				catch (Exception exception)
-				{
-					clientThread.invoke(() -> fail(taskName, call, exception));
-				}
-			}
-		});
+			.addQueryParameter("format", "json");
+		WikiRequestManager.RequestHandle request = requestManager.request(url,
+			root -> acceptCandidate(taskName, candidates, candidateIndex, root),
+			exception -> fail(taskName, exception));
+		requests.put(taskName, request);
 	}
 
-	private void tryNextCandidate(String taskName, List<String> candidates, int candidateIndex,
-		Call completedCall)
+	private void acceptCandidate(String taskName, List<String> candidates, int candidateIndex,
+		JsonObject root)
 	{
-		if (calls.get(taskName) != completedCall || !listeners.containsKey(taskName))
+		if (!requests.containsKey(taskName))
 		{
 			return;
 		}
-
-		int nextIndex = candidateIndex + 1;
-		if (nextIndex < candidates.size())
+		if (isMissingPage(root))
 		{
-			requestCandidate(taskName, candidates, nextIndex);
+			int nextIndex = candidateIndex + 1;
+			if (nextIndex < candidates.size())
+			{
+				requestCandidate(taskName, candidates, nextIndex);
+				return;
+			}
+			log.debug("No Slayer task Wiki page found for {} using candidates {}", taskName, candidates);
+			complete(taskName, Collections.emptyList());
 			return;
 		}
 
-		log.debug("No Slayer task Wiki page found for {} using candidates {}", taskName, candidates);
-		complete(taskName, completedCall, Collections.emptyList());
+		try
+		{
+			String wikiText = root.getAsJsonObject("parse")
+				.getAsJsonObject("wikitext").get("*").getAsString();
+			complete(taskName, WikiTaskVariantParser.parse(wikiText));
+		}
+		catch (Exception exception)
+		{
+			fail(taskName, exception);
+		}
 	}
 
 	private static boolean isMissingPage(JsonObject root)
@@ -211,36 +179,23 @@ final class WikiTaskVariantClient
 			|| character == 'o' || character == 'u';
 	}
 
-	void reset()
+	private void complete(String taskName, List<TaskVariant> result)
 	{
-		calls.values().forEach(Call::cancel);
-		calls.clear();
-		listeners.clear();
-		sessionResults.clear();
-		requestThrottle.reset();
-	}
-
-	private void complete(String taskName, Call call, List<TaskVariant> result)
-	{
-		if (calls.get(taskName) != call)
+		if (requests.remove(taskName) == null)
 		{
 			return;
 		}
-		calls.remove(taskName);
-		requestThrottle.recordSuccess(taskName);
 		List<TaskVariant> immutableResult = Collections.unmodifiableList(new ArrayList<>(result));
 		sessionResults.put(taskName, immutableResult);
 		notifyListeners(taskName, immutableResult);
 	}
 
-	private void fail(String taskName, Call call, Exception exception)
+	private void fail(String taskName, Exception exception)
 	{
-		if (calls.get(taskName) != call)
+		if (requests.remove(taskName) == null)
 		{
 			return;
 		}
-		calls.remove(taskName);
-		requestThrottle.recordFailure(taskName, Instant.now());
 		log.debug("Unable to retrieve Wiki variants for {}", taskName, exception);
 		notifyListeners(taskName, Collections.emptyList());
 	}

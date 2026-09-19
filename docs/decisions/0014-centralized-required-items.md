@@ -22,7 +22,7 @@ The table is not a fully structured requirement schema. Most required-item cells
 - Expand resolved IDs through RuneLite's `ItemVariationMapping` so recognized charged, imbued, and cosmetic variants satisfy a condition.
 - Reject an entire monster rule if any required group cannot be resolved.
 - Prefer a complete centralized rule over the local rule. Retain local Gargoyle and Desert lizard rules as offline/failure fallbacks.
-- Apply the existing timeout, `maxlag`, failure cooldown, identifiable User-Agent, session cache, and shutdown cancellation policies to both requests.
+- Apply the existing timeout, `maxlag`, identifiable User-Agent, session cache, and shutdown cancellation policies to both requests.
 
 ## Consequences
 

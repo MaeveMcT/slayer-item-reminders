@@ -1,13 +1,16 @@
 package com.slayeritemreminders;
 
 import com.google.gson.Gson;
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import net.runelite.client.callback.ClientThread;
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.HttpUrl;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import okio.Timeout;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -16,105 +19,73 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class WikiClientRequestPolicyTest
 {
 	@Test
-	public void dropRequestsDeclareMaxLagAndCancelSupersededLookup()
+	public void managerAppliesSharedPolicy()
 	{
 		OkHttpClient httpClient = mock(OkHttpClient.class);
-		Call ankouCall = call();
-		Call blackDemonCall = call();
-		when(httpClient.newCall(any(Request.class))).thenReturn(ankouCall, blackDemonCall);
-		WikiDropTableClient client = new WikiDropTableClient(
-			httpClient, mock(Gson.class), mock(ClientThread.class));
+		Call call = call();
+		when(httpClient.newCall(any(Request.class))).thenReturn(call);
+		WikiRequestManager manager = new WikiRequestManager(
+			httpClient, new Gson(), immediateClientThread());
 
-		client.lookup("Ankou", ignored -> { });
-		client.lookup("Black demon", ignored -> { });
-		client.cancelPendingExcept("Black demon");
-
-		ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
-		verify(httpClient, org.mockito.Mockito.times(2)).newCall(requests.capture());
-		assertEquals("5", requests.getAllValues().get(0).url().queryParameter("maxlag"));
-		verify(ankouCall).cancel();
-		verify(blackDemonCall, never()).cancel();
-	}
-
-	@Test
-	public void dropFailureSuppressesImmediateRetry()
-	{
-		OkHttpClient httpClient = mock(OkHttpClient.class);
-		Call failedCall = call();
-		when(httpClient.newCall(any(Request.class))).thenReturn(failedCall);
-		WikiDropTableClient client = new WikiDropTableClient(
-			httpClient, mock(Gson.class), immediateClientThread());
-		client.lookup("Ankou", ignored -> { });
-		ArgumentCaptor<Callback> callback = ArgumentCaptor.forClass(Callback.class);
-		verify(failedCall).enqueue(callback.capture());
-		callback.getValue().onFailure(failedCall, new IOException("offline"));
-		AtomicBoolean cooledDownResult = new AtomicBoolean();
-
-		client.lookup("Ankou", ignored -> cooledDownResult.set(true));
-
-		verify(httpClient).newCall(any(Request.class));
-		assertEquals(true, cooledDownResult.get());
-	}
-
-	@Test
-	public void variantFailureSuppressesImmediateRetry()
-	{
-		OkHttpClient httpClient = mock(OkHttpClient.class);
-		Call failedCall = call();
-		when(httpClient.newCall(any(Request.class))).thenReturn(failedCall);
-		WikiTaskVariantClient client = new WikiTaskVariantClient(
-			httpClient, mock(Gson.class), immediateClientThread());
-		client.lookup("Black demons", ignored -> { });
-		ArgumentCaptor<Callback> callback = ArgumentCaptor.forClass(Callback.class);
-		verify(failedCall).enqueue(callback.capture());
-		callback.getValue().onFailure(failedCall, new IOException("offline"));
-		AtomicBoolean cooledDownResult = new AtomicBoolean();
-
-		client.lookup("Black demons", ignored -> cooledDownResult.set(true));
-
-		verify(httpClient).newCall(any(Request.class));
-		assertEquals(true, cooledDownResult.get());
-	}
-
-	@Test
-	public void requiredItemSourceUsesOneCentralSectionRequest()
-	{
-		OkHttpClient httpClient = mock(OkHttpClient.class);
-		Call requiredItemCall = call();
-		when(httpClient.newCall(any(Request.class))).thenReturn(requiredItemCall);
-		WikiRequiredItemClient client = new WikiRequiredItemClient(
-			httpClient, mock(Gson.class), mock(ClientThread.class));
-
-		client.lookup(ignored -> { });
-
-		ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
-		verify(httpClient).newCall(request.capture());
-		assertEquals("Slayer monsters", request.getValue().url().queryParameter("page"));
-		assertEquals("1", request.getValue().url().queryParameter("section"));
-		assertEquals("5", request.getValue().url().queryParameter("maxlag"));
-	}
-
-	@Test
-	public void variantRequestsDeclareMaxLag()
-	{
-		OkHttpClient httpClient = mock(OkHttpClient.class);
-		Call variantCall = call();
-		when(httpClient.newCall(any(Request.class))).thenReturn(variantCall);
-		WikiTaskVariantClient client = new WikiTaskVariantClient(
-			httpClient, mock(Gson.class), mock(ClientThread.class));
-
-		client.lookup("Black demons", ignored -> { });
+		manager.request(url("Ankou"), ignored -> { }, ignored -> { });
 
 		ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
 		verify(httpClient).newCall(request.capture());
 		assertEquals("5", request.getValue().url().queryParameter("maxlag"));
+		assertEquals("slayer-item-reminders/0.1.0 (RuneLite external plugin)",
+			request.getValue().header("User-Agent"));
+		verify(call).timeout();
+		verify(call).enqueue(any(Callback.class));
+	}
+
+	@Test
+	public void managerRejectsOversizedResponses() throws Exception
+	{
+		OkHttpClient httpClient = mock(OkHttpClient.class);
+		Call call = call();
+		when(httpClient.newCall(any(Request.class))).thenReturn(call);
+		WikiRequestManager manager = new WikiRequestManager(
+			httpClient, new Gson(), immediateClientThread());
+		boolean[] failed = {false};
+		manager.request(url("Large"), ignored -> { }, ignored -> failed[0] = true);
+		ArgumentCaptor<Callback> callback = ArgumentCaptor.forClass(Callback.class);
+		verify(call).enqueue(callback.capture());
+		byte[] oversized = new byte[2 * 1024 * 1024 + 1];
+
+		callback.getValue().onResponse(call, response(oversized));
+
+		assertEquals(true, failed[0]);
+	}
+
+	@Test
+	public void domainClientsUseSharedManagerAndCancellation()
+	{
+		WikiRequestManager manager = mock(WikiRequestManager.class);
+		WikiRequestManager.RequestHandle handle = mock(WikiRequestManager.RequestHandle.class);
+		when(manager.request(any(HttpUrl.Builder.class), any(), any())).thenReturn(handle);
+		WikiDropTableClient dropClient = new WikiDropTableClient(manager);
+
+		dropClient.lookup("Ankou", ignored -> { });
+		dropClient.cancelPendingExcept("Black demon");
+
+		ArgumentCaptor<HttpUrl.Builder> url = ArgumentCaptor.forClass(HttpUrl.Builder.class);
+		verify(manager).request(url.capture(), any(), any());
+		assertEquals("Ankou", url.getValue().build().queryParameter("page"));
+		verify(handle).cancel();
+	}
+
+	private static HttpUrl.Builder url(String page)
+	{
+		return WikiRequestManager.apiUrl()
+			.addQueryParameter("action", "parse")
+			.addQueryParameter("page", page)
+			.addQueryParameter("format", "json");
 	}
 
 	private static ClientThread immediateClientThread()
@@ -133,5 +104,16 @@ public class WikiClientRequestPolicyTest
 		Call call = mock(Call.class);
 		when(call.timeout()).thenReturn(new Timeout());
 		return call;
+	}
+
+	private static Response response(byte[] body)
+	{
+		return new Response.Builder()
+			.request(new Request.Builder().url("https://oldschool.runescape.wiki/api.php").build())
+			.protocol(Protocol.HTTP_1_1)
+			.code(200)
+			.message("OK")
+			.body(ResponseBody.create(MediaType.get("application/json"), body))
+			.build();
 	}
 }

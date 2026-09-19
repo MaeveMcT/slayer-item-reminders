@@ -77,7 +77,7 @@ bucket('infobox_item')
 
 The live query returned IDs for all four items in one request, including untradeable items absent from the Wiki price mapping endpoint.
 
-Caveat: Bucket's own documentation says its API/schema are unstable and third-party production usage is not yet recommended. The API implementation also applies a request limiter and marks responses publicly cacheable. Any use should therefore retain the plugin's identifiable User-Agent, `maxlag`, session cache, failure cooldown, and conservative request count.
+Caveat: Bucket's own documentation says its API/schema are unstable and third-party production usage is not yet recommended. The API implementation also applies a request limiter and marks responses publicly cacheable. Any use should therefore retain the plugin's identifiable User-Agent, `maxlag`, session cache, and conservative request count.
 
 The Wiki currently has no dedicated Slayer-requirement Bucket. The published Bucket schemas include monster/item infoboxes and recommended equipment, but nothing that directly models required Slayer items and their AND/OR/variant conditions.
 

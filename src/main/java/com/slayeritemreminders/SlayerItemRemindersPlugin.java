@@ -358,6 +358,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void requestVariants(boolean openPanelWhenAmbiguous,
 		boolean requestRecommendationsWhenUnambiguous)
 	{
+		wikiTaskVariantClient.cancelPendingExcept(taskName);
 		variantsLoading = true;
 		updateVariantPanel();
 		String requestedTask = taskName;
@@ -647,6 +648,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		updateVariantPanel();
 		recommendations = Collections.emptySet();
 		wikiDropTableClient.cancelPendingExcept(null);
+		wikiTaskVariantClient.cancelPendingExcept(null);
 		dismissed = false;
 		optionalOverrideVisible = false;
 		reminderWindowActive = false;

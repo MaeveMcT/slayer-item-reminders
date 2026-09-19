@@ -125,15 +125,15 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 The OSRS Wiki is an asynchronous third-party dependency:
 
 - Use RuneLite's injected `OkHttpClient`.
-- Apply a 30-second timeout and MediaWiki's five-second `maxlag` safeguard.
+- Route every Wiki call through one shared request adapter.
+- Apply a 30-second timeout, a two-megabyte response limit, and MediaWiki's five-second `maxlag` safeguard.
 - Send an identifiable User-Agent.
 - Parse a stable API response rather than scraping visual page layout where possible.
 - Discover variants from the `Monster variants` section of the assignment's `Slayer task/<task>` Wiki page.
 - Fetch the `Slayer monsters` list section once and resolve all referenced item names through one batched Bucket query.
 - Keep successful required-item, variant, and derived drop-table results in memory for the current RuneLite session.
 - Deduplicate concurrent lookups for the same task or canonical monster.
-- Cancel a pending drop-table lookup when a different assignment or variant supersedes it.
-- Cool down retries for five minutes after a network, HTTP, or parsing failure.
+- Cancel pending drop-table and variant lookups when a different assignment or variant supersedes them.
 - Do not persist a cache in the MVP.
 - Fail silently to the player and log diagnostics at debug level.
 

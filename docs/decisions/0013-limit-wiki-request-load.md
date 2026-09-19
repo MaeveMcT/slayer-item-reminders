@@ -1,6 +1,6 @@
 # ADR 0013: Limit OSRS Wiki request load
 
-- Status: Accepted
+- Status: Accepted (amended by ADR 0015)
 - Date: 2026-09-07
 
 ## Context

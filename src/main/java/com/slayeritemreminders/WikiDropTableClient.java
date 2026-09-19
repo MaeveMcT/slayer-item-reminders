@@ -1,53 +1,32 @@
 package com.slayeritemreminders;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.callback.ClientThread;
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
 
 @Slf4j
 final class WikiDropTableClient
 {
-	private static final HttpUrl WIKI_API = HttpUrl.get("https://oldschool.runescape.wiki/api.php");
-	private static final String USER_AGENT = "slayer-item-reminders/0.1.0 (RuneLite external plugin)";
-	private static final long TIMEOUT_SECONDS = 30;
-	private static final String MAX_LAG_SECONDS = "5";
-
-	private final OkHttpClient httpClient;
-	private final Gson gson;
-	private final ClientThread clientThread;
+	private final WikiRequestManager requestManager;
 	private final Map<String, Set<RecommendedItem>> sessionResults = new HashMap<>();
 	private final Map<String, List<Consumer<Set<RecommendedItem>>>> listeners = new HashMap<>();
-	private final Map<String, Call> calls = new HashMap<>();
-	private final WikiRequestThrottle requestThrottle = new WikiRequestThrottle();
+	private final Map<String, WikiRequestManager.RequestHandle> requests = new HashMap<>();
 
 	@Inject
-	WikiDropTableClient(OkHttpClient httpClient, Gson gson, ClientThread clientThread)
+	WikiDropTableClient(WikiRequestManager requestManager)
 	{
-		this.httpClient = httpClient;
-		this.gson = gson;
-		this.clientThread = clientThread;
+		this.requestManager = requestManager;
 	}
 
 	void lookup(String wikiPage, Consumer<Set<RecommendedItem>> listener)
@@ -65,72 +44,27 @@ final class WikiDropTableClient
 			pageListeners.add(listener);
 			return;
 		}
-		if (!requestThrottle.shouldRequest(wikiPage, Instant.now()))
-		{
-			listener.accept(Collections.emptySet());
-			return;
-		}
-
 		pageListeners = new ArrayList<>();
 		pageListeners.add(listener);
 		listeners.put(wikiPage, pageListeners);
-
-		HttpUrl url = WIKI_API.newBuilder()
+		HttpUrl.Builder url = WikiRequestManager.apiUrl()
 			.addQueryParameter("action", "parse")
 			.addQueryParameter("page", wikiPage)
 			.addQueryParameter("prop", "text")
-			.addQueryParameter("format", "json")
-			.addQueryParameter("maxlag", MAX_LAG_SECONDS)
-			.build();
-		Request request = new Request.Builder()
-			.url(url)
-			.header("User-Agent", USER_AGENT)
-			.build();
-		Call call = httpClient.newCall(request);
-		call.timeout().timeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-		calls.put(wikiPage, call);
-		call.enqueue(new Callback()
-		{
-			@Override
-			public void onFailure(Call call, IOException exception)
-			{
-				clientThread.invoke(() -> fail(wikiPage, call, exception));
-			}
-
-			@Override
-			public void onResponse(Call call, Response response)
-			{
-				try (ResponseBody body = response.body())
-				{
-					if (!response.isSuccessful() || body == null)
-					{
-						throw new IOException("OSRS Wiki returned HTTP " + response.code());
-					}
-
-					JsonObject root = gson.fromJson(body.charStream(), JsonObject.class);
-					String html = root.getAsJsonObject("parse")
-						.getAsJsonObject("text")
-						.get("*")
-						.getAsString();
-					Set<RecommendedItem> parsed = DropTableParser.parse(html);
-					Set<RecommendedItem> result = Collections.unmodifiableSet(
-						parsed.isEmpty() ? EnumSet.noneOf(RecommendedItem.class) : EnumSet.copyOf(parsed));
-					clientThread.invoke(() -> complete(wikiPage, call, result));
-				}
-				catch (Exception exception)
-				{
-					clientThread.invoke(() -> fail(wikiPage, call, exception));
-				}
-			}
-		});
+			.addQueryParameter("format", "json");
+		WikiRequestManager.RequestHandle request = requestManager.request(url,
+			root -> complete(wikiPage, root),
+			exception -> fail(wikiPage, exception));
+		requests.put(wikiPage, request);
 	}
 
 	void cancelPendingExcept(String wikiPage)
 	{
-		Iterator<Map.Entry<String, Call>> iterator = calls.entrySet().iterator();
+		Iterator<Map.Entry<String, WikiRequestManager.RequestHandle>> iterator =
+			requests.entrySet().iterator();
 		while (iterator.hasNext())
 		{
-			Map.Entry<String, Call> entry = iterator.next();
+			Map.Entry<String, WikiRequestManager.RequestHandle> entry = iterator.next();
 			if (!Objects.equals(entry.getKey(), wikiPage))
 			{
 				iterator.remove();
@@ -142,38 +76,51 @@ final class WikiDropTableClient
 
 	void reset()
 	{
-		calls.values().forEach(Call::cancel);
-		calls.clear();
+		requests.values().forEach(WikiRequestManager.RequestHandle::cancel);
+		requests.clear();
 		listeners.clear();
 		sessionResults.clear();
-		requestThrottle.reset();
 	}
 
-	private void complete(String wikiPage, Call call, Set<RecommendedItem> result)
+	private void complete(String wikiPage, JsonObject root)
 	{
-		if (calls.get(wikiPage) != call)
+		if (!requests.containsKey(wikiPage))
 		{
 			return;
 		}
-		calls.remove(wikiPage);
-		requestThrottle.recordSuccess(wikiPage);
-		sessionResults.put(wikiPage, result);
+		try
+		{
+			String html = root.getAsJsonObject("parse")
+				.getAsJsonObject("text").get("*").getAsString();
+			Set<RecommendedItem> parsed = DropTableParser.parse(html);
+			Set<RecommendedItem> result = Collections.unmodifiableSet(
+				parsed.isEmpty() ? EnumSet.noneOf(RecommendedItem.class) : EnumSet.copyOf(parsed));
+			requests.remove(wikiPage);
+			sessionResults.put(wikiPage, result);
+			notifyListeners(wikiPage, result);
+		}
+		catch (Exception exception)
+		{
+			fail(wikiPage, exception);
+		}
+	}
+
+	private void fail(String wikiPage, Exception exception)
+	{
+		if (requests.remove(wikiPage) == null)
+		{
+			return;
+		}
+		log.debug("Unable to retrieve OSRS Wiki drop table for {}", wikiPage, exception);
+		notifyListeners(wikiPage, Collections.emptySet());
+	}
+
+	private void notifyListeners(String wikiPage, Set<RecommendedItem> result)
+	{
 		List<Consumer<Set<RecommendedItem>>> pageListeners = listeners.remove(wikiPage);
 		if (pageListeners != null)
 		{
 			pageListeners.forEach(listener -> listener.accept(result));
 		}
-	}
-
-	private void fail(String wikiPage, Call call, Exception exception)
-	{
-		if (calls.get(wikiPage) != call)
-		{
-			return;
-		}
-		calls.remove(wikiPage);
-		listeners.remove(wikiPage);
-		requestThrottle.recordFailure(wikiPage, Instant.now());
-		log.debug("Unable to retrieve OSRS Wiki drop table for {}", wikiPage, exception);
 	}
 }
