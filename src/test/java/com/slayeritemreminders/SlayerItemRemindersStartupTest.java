@@ -7,12 +7,17 @@ import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.MenuAction;
+import net.runelite.api.MenuEntry;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.DBTableID;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
@@ -21,6 +26,7 @@ import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.util.AsyncBufferedImage;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
@@ -33,13 +39,44 @@ import static org.mockito.Mockito.when;
 public class SlayerItemRemindersStartupTest
 {
 	@Test
-	public void showsRequiredReminderWhenEnabledDuringExistingTask() throws Exception
+	public void doesNotShowReminderWhenEnabledDuringExistingTask() throws Exception
 	{
 		Harness harness = createHarness(GameState.LOGGED_IN);
 
 		harness.plugin.startUp();
 
+		verifyNoInteractions(harness.infoBoxManager);
+	}
+
+	@Test
+	public void showsRequiredReminderWhenTaskIsChecked() throws Exception
+	{
+		Harness harness = createHarness(GameState.LOGIN_SCREEN);
+		harness.plugin.startUp();
+		GameStateChanged loggedIn = new GameStateChanged();
+		loggedIn.setGameState(GameState.LOGGED_IN);
+		harness.plugin.onGameStateChanged(loggedIn);
+		verifyNoInteractions(harness.infoBoxManager);
+
+		Widget widget = mock(Widget.class);
+		when(widget.getItemId()).thenReturn(ItemID.SLAYER_GEM);
+		when(widget.getDynamicChildren()).thenReturn(new Widget[0]);
+		when(harness.client.getWidget(123)).thenReturn(widget);
+		MenuEntry menuEntry = mock(MenuEntry.class);
+		when(menuEntry.getType()).thenReturn(MenuAction.CC_OP);
+		when(menuEntry.getOption()).thenReturn("Check");
+		when(menuEntry.getParam0()).thenReturn(-1);
+		when(menuEntry.getParam1()).thenReturn(123);
+
+		harness.plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry));
+
 		verify(harness.infoBoxManager).addInfoBox(any(ReminderInfoBox.class));
+	}
+
+	@Test
+	public void reminderWindowLastsTenSeconds()
+	{
+		assertEquals(java.time.Duration.ofSeconds(10), SlayerItemRemindersPlugin.REMINDER_DURATION);
 	}
 
 	@Test
@@ -117,7 +154,7 @@ public class SlayerItemRemindersStartupTest
 		ClientToolbar clientToolbar = mock(ClientToolbar.class);
 		inject(plugin, "clientToolbar", clientToolbar);
 		inject(plugin, "panel", new SlayerItemRemindersPanel());
-		return new Harness(plugin, infoBoxManager, clientToolbar);
+		return new Harness(plugin, client, infoBoxManager, clientToolbar);
 	}
 
 	private static void inject(Object target, String fieldName, Object value) throws Exception
@@ -130,13 +167,15 @@ public class SlayerItemRemindersStartupTest
 	private static final class Harness
 	{
 		private final SlayerItemRemindersPlugin plugin;
+		private final Client client;
 		private final InfoBoxManager infoBoxManager;
 		private final ClientToolbar clientToolbar;
 
-		private Harness(SlayerItemRemindersPlugin plugin, InfoBoxManager infoBoxManager,
-			ClientToolbar clientToolbar)
+		private Harness(SlayerItemRemindersPlugin plugin, Client client,
+			InfoBoxManager infoBoxManager, ClientToolbar clientToolbar)
 		{
 			this.plugin = plugin;
+			this.client = client;
 			this.infoBoxManager = infoBoxManager;
 			this.clientToolbar = clientToolbar;
 		}

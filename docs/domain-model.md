@@ -85,7 +85,7 @@ The plugin tracks shared presentation state for the current assignment:
 - `ACTIVE`: reminders may be shown for currently missing items.
 - `BANKING`: both infoboxes are hidden while a regular bank or deposit box is open.
 - `DISMISSED`: both infoboxes are hidden after explicit dismissal.
-- `TIMED_OUT`: both infoboxes are hidden after the five-minute window.
+- `TIMED_OUT`: both infoboxes are hidden after the ten-second window.
 - `CLEARED`: no active assignment exists.
 
 Satisfied item conditions affect which infoboxes exist; they do not permanently alter the lifecycle state.
@@ -95,14 +95,15 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 | Event | Result |
 | --- | --- |
 | Login with existing task | Synchronize assignment in `SILENT`; show nothing |
-| Plugin enabled while already logged in with an existing task | Enter `ACTIVE`, start the five-minute window, evaluate the canonical variant, and discover variants in parallel |
-| New task assignment | Clear old state, enter `ACTIVE`, start the five-minute window, evaluate the canonical variant, and discover variants in parallel; open the sidebar panel when multiple variants are found |
+| Plugin enabled while already logged in with an existing task | Synchronize assignment in `SILENT`; show nothing |
+| New task assignment | Clear old state, enter `ACTIVE`, start the ten-second window, evaluate the canonical variant, and discover variants in parallel; open the sidebar panel when multiple variants are found |
 | Ordinary task-count change | Update assignment count without starting a new lifecycle |
 | Regular bank/deposit box opens | Enter `BANKING`; hide both infoboxes |
-| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart the five-minute window, discover task variants, and open the sidebar panel when multiple variants exist and none is selected; otherwise reevaluate items and start/reuse the drop-table lookup |
+| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart the ten-second window, discover task variants, and open the sidebar panel when multiple variants exist and none is selected; otherwise reevaluate items and start/reuse the drop-table lookup |
+| Check selected on a Slayer helmet or enchanted gem | Enter `ACTIVE`, clear dismissal, restart the ten-second window, and reevaluate items |
 | Inventory/equipment changes while active | Reevaluate both categories |
 | Dismiss selected on either infobox | Enter `DISMISSED`; hide both infoboxes |
-| Five-minute window expires | Enter `TIMED_OUT`; hide both infoboxes |
+| Ten-second window expires | Enter `TIMED_OUT`; hide both infoboxes |
 | Wiki result returns for current assignment | Store session result and immediately update/show optional infobox, even if the earlier reminder was dismissed |
 | Player selects a task variant from the sidebar panel | Invalidate older lookup generations and immediately evaluate the selected variant |
 | Wiki result returns for an old assignment or variant | Ignore it |

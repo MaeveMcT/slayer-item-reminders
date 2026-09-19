@@ -40,4 +40,4 @@ The period from opening through closing a regular bank interface or bank deposit
 The closing of a regular bank interface or bank deposit box. It resets temporary dismissal and re-evaluates whether the player is missing reminder items.
 
 ## Reminder timeout
-A period after which a visible reminder hides automatically so it does not remain while the player pursues another activity. Its duration and reset rules remain to be decided.
+The ten-second period after a new assignment, bank close, or task check during which missing-item reminders may be shown.

@@ -19,23 +19,28 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.MenuAction;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.DBTableID;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.InfoBoxMenuClicked;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemVariationMapping;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -51,7 +56,7 @@ import net.runelite.client.util.ImageUtil;
 )
 public class SlayerItemRemindersPlugin extends Plugin
 {
-	private static final Duration REMINDER_DURATION = Duration.ofMinutes(5);
+	static final Duration REMINDER_DURATION = Duration.ofSeconds(10);
 
 	@Inject
 	private Client client;
@@ -120,7 +125,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		log.debug("Slayer Item Reminders started");
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
-			clientThread.invokeLater(() -> updateTaskInternal(false));
+			synchronizeTaskSilently();
 		}
 	}
 
@@ -210,6 +215,49 @@ public class SlayerItemRemindersPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked event)
+	{
+		if ((event.getMenuAction() != MenuAction.CC_OP
+			&& event.getMenuAction() != MenuAction.CC_OP_LOW_PRIORITY)
+			|| !"Check".equals(event.getMenuOption()))
+		{
+			return;
+		}
+
+		Widget widget = client.getWidget(event.getParam1());
+		if (widget == null)
+		{
+			return;
+		}
+		if (event.getParam0() != -1)
+		{
+			widget = widget.getChild(event.getParam0());
+			if (widget == null)
+			{
+				return;
+			}
+		}
+
+		int itemId = widget.getItemId();
+		for (Widget child : widget.getDynamicChildren())
+		{
+			if (itemId == -1)
+			{
+				itemId = child.getItemId();
+			}
+		}
+		itemId = ItemVariationMapping.map(itemId);
+		if (itemId == ItemID.SLAYER_HELM || itemId == ItemID.SLAYER_GEM)
+		{
+			updateTask();
+			if (taskName != null)
+			{
+				activateReminderWindow(false);
+			}
+		}
+	}
+
+	@Subscribe
 	public void onGameTick(GameTick event)
 	{
 		if ((reminderWindowActive || optionalOverrideVisible) && reminderExpiresAt != null
@@ -260,11 +308,6 @@ public class SlayerItemRemindersPlugin extends Plugin
 
 	private void updateTask()
 	{
-		updateTaskInternal(true);
-	}
-
-	private void updateTaskInternal(boolean openVariantPanel)
-	{
 		int amount = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
 		if (amount <= 0)
 		{
@@ -297,7 +340,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			if (!suppressTaskReminder)
 			{
 				activateReminderWindow(false);
-				requestVariants(openVariantPanel, false);
+				requestVariants(true, false);
 			}
 			else
 			{
