@@ -81,7 +81,7 @@ The sidebar panel identifies the current assignment and provides a RuneLite-nati
 
 The plugin tracks shared presentation state for the current assignment:
 
-- `SILENT`: assignment known, but no user-visible trigger has occurred.
+- `SILENT`: assignment known, but no user-visible trigger has occurred; login synchronization never opens the sidebar panel.
 - `ACTIVE`: reminders may be shown for currently missing items.
 - `BANKING`: both infoboxes are hidden while a regular bank or deposit box is open.
 - `DISMISSED`: both infoboxes are hidden after explicit dismissal.
@@ -99,7 +99,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 | New task assignment | Clear old state, enter `ACTIVE`, start the ten-second window, evaluate the canonical variant, and discover variants in parallel; open the sidebar panel when multiple variants are found |
 | Ordinary task-count change | Update assignment count without starting a new lifecycle |
 | Regular bank/deposit box opens | Enter `BANKING`; hide both infoboxes |
-| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart the ten-second window, discover task variants, and open the sidebar panel when multiple variants exist and none is selected; otherwise reevaluate items and start/reuse the drop-table lookup |
+| Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart the ten-second window, reevaluate items, and start/reuse the drop-table lookup without opening the sidebar panel |
 | Check selected on a Slayer helmet or enchanted gem | Enter `ACTIVE`, clear dismissal, restart the ten-second window, and reevaluate items |
 | Inventory/equipment changes while active | Reevaluate both categories |
 | Owned-container config changes | Immediately reevaluate optional recommendations |

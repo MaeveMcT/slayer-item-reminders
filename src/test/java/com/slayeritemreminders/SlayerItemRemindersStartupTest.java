@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -12,7 +13,9 @@ import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.DBTableID;
@@ -120,6 +123,72 @@ public class SlayerItemRemindersStartupTest
 	}
 
 	@Test
+	public void doesNotOpenVariantPanelWhenExistingTaskArrivesAfterLogin() throws Exception
+	{
+		Harness harness = createHarness(GameState.LOGIN_SCREEN);
+		when(harness.client.getVarpValue(VarPlayerID.SLAYER_COUNT)).thenReturn(0, 100);
+		harness.plugin.startUp();
+
+		GameStateChanged loggedIn = new GameStateChanged();
+		loggedIn.setGameState(GameState.LOGGED_IN);
+		harness.plugin.onGameStateChanged(loggedIn);
+
+		VarbitChanged taskLoaded = new VarbitChanged();
+		taskLoaded.setVarpId(VarPlayerID.SLAYER_COUNT);
+		harness.plugin.onVarbitChanged(taskLoaded);
+		SwingUtilities.invokeAndWait(() -> { });
+
+		verify(harness.clientToolbar, never()).openPanel(any());
+	}
+
+	@Test
+	public void doesNotOpenVariantPanelFromRequestStartedBeforeLogin() throws Exception
+	{
+		Harness harness = createHarness(GameState.LOGIN_SCREEN);
+		AtomicReference<Consumer<java.util.List<TaskVariant>>> variantListener = new AtomicReference<>();
+		doAnswer(invocation ->
+		{
+			variantListener.set(invocation.getArgument(1));
+			return null;
+		}).when(harness.wikiTaskVariantClient).lookup(any(String.class), any());
+		harness.plugin.startUp();
+
+		VarbitChanged assignmentLoaded = new VarbitChanged();
+		assignmentLoaded.setVarpId(VarPlayerID.SLAYER_COUNT);
+		harness.plugin.onVarbitChanged(assignmentLoaded);
+
+		GameStateChanged loggingIn = new GameStateChanged();
+		loggingIn.setGameState(GameState.LOGGING_IN);
+		harness.plugin.onGameStateChanged(loggingIn);
+		variantListener.get().accept(Arrays.asList(
+			new TaskVariant("Gargoyle", "Gargoyle"),
+			new TaskVariant("Dusk", "Dusk")));
+		SwingUtilities.invokeAndWait(() -> { });
+
+		verify(harness.clientToolbar, never()).openPanel(any());
+	}
+
+	@Test
+	public void opensVariantPanelForAssignmentAfterLoginSynchronization() throws Exception
+	{
+		Harness harness = createHarness(GameState.LOGIN_SCREEN);
+		when(harness.client.getVarpValue(VarPlayerID.SLAYER_COUNT)).thenReturn(0, 0, 100);
+		harness.plugin.startUp();
+
+		GameStateChanged loggedIn = new GameStateChanged();
+		loggedIn.setGameState(GameState.LOGGED_IN);
+		harness.plugin.onGameStateChanged(loggedIn);
+		harness.plugin.onGameTick(new GameTick());
+
+		VarbitChanged assignmentLoaded = new VarbitChanged();
+		assignmentLoaded.setVarpId(VarPlayerID.SLAYER_COUNT);
+		harness.plugin.onVarbitChanged(assignmentLoaded);
+		SwingUtilities.invokeAndWait(() -> { });
+
+		verify(harness.clientToolbar).openPanel(any());
+	}
+
+	@Test
 	public void showsRequiredReminderAfterBankClosesForSilentlySynchronizedTask() throws Exception
 	{
 		Harness harness = createHarness(GameState.LOGIN_SCREEN);
@@ -133,8 +202,10 @@ public class SlayerItemRemindersStartupTest
 		bankLoaded.setGroupId(InterfaceID.BANKMAIN);
 		harness.plugin.onWidgetLoaded(bankLoaded);
 		harness.plugin.onWidgetClosed(new WidgetClosed(InterfaceID.BANKMAIN, 0, true));
+		SwingUtilities.invokeAndWait(() -> { });
 
 		verify(harness.infoBoxManager, atLeastOnce()).addInfoBox(any(ReminderInfoBox.class));
+		verify(harness.clientToolbar, never()).openPanel(any());
 	}
 
 	private static void logInAndCheckTask(Harness harness)
@@ -216,7 +287,8 @@ public class SlayerItemRemindersStartupTest
 		ClientToolbar clientToolbar = mock(ClientToolbar.class);
 		inject(plugin, "clientToolbar", clientToolbar);
 		inject(plugin, "panel", new SlayerItemRemindersPanel());
-		return new Harness(plugin, client, infoBoxManager, clientToolbar);
+		return new Harness(plugin, client, infoBoxManager, clientToolbar,
+			wikiTaskVariantClient);
 	}
 
 	private static void inject(Object target, String fieldName, Object value) throws Exception
@@ -232,14 +304,17 @@ public class SlayerItemRemindersStartupTest
 		private final Client client;
 		private final InfoBoxManager infoBoxManager;
 		private final ClientToolbar clientToolbar;
+		private final WikiTaskVariantClient wikiTaskVariantClient;
 
 		private Harness(SlayerItemRemindersPlugin plugin, Client client,
-			InfoBoxManager infoBoxManager, ClientToolbar clientToolbar)
+			InfoBoxManager infoBoxManager, ClientToolbar clientToolbar,
+			WikiTaskVariantClient wikiTaskVariantClient)
 		{
 			this.plugin = plugin;
 			this.client = client;
 			this.infoBoxManager = infoBoxManager;
 			this.clientToolbar = clientToolbar;
+			this.wikiTaskVariantClient = wikiTaskVariantClient;
 		}
 	}
 }

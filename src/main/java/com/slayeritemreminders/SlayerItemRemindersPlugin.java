@@ -94,6 +94,8 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private NavigationButton navigationButton;
 	private String taskName;
 	private boolean suppressTaskReminder;
+	private boolean loginSynchronizationPending;
+	private long panelOpenGeneration;
 	private boolean bankOpen;
 	private boolean reminderWindowActive;
 	private boolean dismissed;
@@ -141,6 +143,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		wikiRequiredItemClient.reset();
 		bankOpen = false;
 		suppressTaskReminder = false;
+		loginSynchronizationPending = false;
 		log.debug("Slayer Item Reminders stopped");
 	}
 
@@ -153,11 +156,13 @@ public class SlayerItemRemindersPlugin extends Plugin
 			case LOGGING_IN:
 			case CONNECTION_LOST:
 				suppressTaskReminder = true;
+				loginSynchronizationPending = false;
+				panelOpenGeneration++;
 				bankOpen = false;
 				removeInfoBoxes();
 				break;
 			case LOGGED_IN:
-				synchronizeTaskSilently();
+				beginLoginSynchronization();
 				break;
 			default:
 				break;
@@ -198,7 +203,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			updateTask();
 			if (taskName != null)
 			{
-				activateReminderWindow(true);
+				activateReminderWindow(false);
 			}
 		}
 	}
@@ -260,6 +265,13 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		if (loginSynchronizationPending)
+		{
+			updateTask();
+			loginSynchronizationPending = false;
+			suppressTaskReminder = false;
+		}
+
 		if ((reminderWindowActive || optionalOverrideVisible) && reminderExpiresAt != null
 			&& !Instant.now().isBefore(reminderExpiresAt))
 		{
@@ -310,6 +322,14 @@ public class SlayerItemRemindersPlugin extends Plugin
 			updateTask();
 			suppressTaskReminder = false;
 		});
+	}
+
+	private void beginLoginSynchronization()
+	{
+		panelOpenGeneration++;
+		suppressTaskReminder = true;
+		loginSynchronizationPending = true;
+		clientThread.invokeLater(this::updateTask);
 	}
 
 	private void updateTask()
@@ -417,6 +437,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		updateVariantPanel();
 		String requestedTask = taskName;
 		long requestedGeneration = taskGeneration;
+		long requestedPanelOpenGeneration = panelOpenGeneration;
 		wikiTaskVariantClient.lookup(requestedTask, wikiVariants ->
 		{
 			if (!Objects.equals(taskName, requestedTask) || taskGeneration != requestedGeneration)
@@ -428,7 +449,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 			availableVariants = definition.getVariants();
 			variantsLoading = false;
 			updateVariantPanel();
-			if (openPanelWhenAmbiguous && definition.hasMultipleVariants() && selectedVariant == null)
+			if (openPanelWhenAmbiguous
+				&& requestedPanelOpenGeneration == panelOpenGeneration
+				&& definition.hasMultipleVariants() && selectedVariant == null)
 			{
 				SwingUtilities.invokeLater(() ->
 				{
