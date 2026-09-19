@@ -26,9 +26,11 @@ Local knowledge associated with a task name:
 - Monster variants discovered from the OSRS Wiki's Slayer task page
 - A canonical default variant
 
-Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. Curated entries take precedence over discovered entries so local required-item rules are retained. Greater demons initially curates Greater demon, Tormented Demon, K'ril Tsutsaroth, and Skotizo; additional monsters in its Wiki variants table are discovered at runtime.
+Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. Curated entries take precedence when merging variant identities so local fallback rules are retained. Greater demons initially curates Greater demon, Tormented Demon, K'ril Tsutsaroth, and Skotizo; additional monsters in its Wiki variants table are discovered at runtime.
 
-The MVP defines required-item conditions only for:
+Required-item knowledge is loaded once per session from the centralized OSRS Wiki `Slayer monsters` table. Its item names are resolved in one batched Wiki Bucket query and expanded through RuneLite's item-variation mapping. The parser preserves explicit compound rules for monsters whose requirements are not one flat set of alternatives. A complete centralized rule takes precedence over its curated fallback.
+
+The local catalog retains network-independent fallback rules for:
 
 | Task | Requirement | Satisfied by |
 | --- | --- | --- |
@@ -109,7 +111,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 
 ## Invariants
 
-- Required-item reminders never depend on the network.
+- Curated Gargoyle and Desert lizard required-item reminders never depend on the network; broader required-item coverage degrades safely when the centralized lookup fails.
 - No Wiki request blocks the RuneLite client thread.
 - At most one required and one optional infobox exist.
 - Both infoboxes always refer to the same current assignment.
@@ -127,7 +129,8 @@ The OSRS Wiki is an asynchronous third-party dependency:
 - Send an identifiable User-Agent.
 - Parse a stable API response rather than scraping visual page layout where possible.
 - Discover variants from the `Monster variants` section of the assignment's `Slayer task/<task>` Wiki page.
-- Keep successful variant and derived drop-table results in memory for the current RuneLite session.
+- Fetch the `Slayer monsters` list section once and resolve all referenced item names through one batched Bucket query.
+- Keep successful required-item, variant, and derived drop-table results in memory for the current RuneLite session.
 - Deduplicate concurrent lookups for the same task or canonical monster.
 - Cancel a pending drop-table lookup when a different assignment or variant supersedes it.
 - Cool down retries for five minutes after a network, HTTP, or parsing failure.

@@ -84,6 +84,24 @@ public class WikiClientRequestPolicyTest
 	}
 
 	@Test
+	public void requiredItemSourceUsesOneCentralSectionRequest()
+	{
+		OkHttpClient httpClient = mock(OkHttpClient.class);
+		Call requiredItemCall = call();
+		when(httpClient.newCall(any(Request.class))).thenReturn(requiredItemCall);
+		WikiRequiredItemClient client = new WikiRequiredItemClient(
+			httpClient, mock(Gson.class), mock(ClientThread.class));
+
+		client.lookup(ignored -> { });
+
+		ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
+		verify(httpClient).newCall(request.capture());
+		assertEquals("Slayer monsters", request.getValue().url().queryParameter("page"));
+		assertEquals("1", request.getValue().url().queryParameter("section"));
+		assertEquals("5", request.getValue().url().queryParameter("maxlag"));
+	}
+
+	@Test
 	public void variantRequestsDeclareMaxLag()
 	{
 		OkHttpClient httpClient = mock(OkHttpClient.class);

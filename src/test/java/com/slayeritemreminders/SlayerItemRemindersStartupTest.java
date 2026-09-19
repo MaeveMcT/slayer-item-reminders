@@ -88,6 +88,7 @@ public class SlayerItemRemindersStartupTest
 		inject(plugin, "infoBoxManager", infoBoxManager);
 		inject(plugin, "wikiDropTableClient", mock(WikiDropTableClient.class));
 		inject(plugin, "wikiTaskVariantClient", mock(WikiTaskVariantClient.class));
+		inject(plugin, "wikiRequiredItemClient", mock(WikiRequiredItemClient.class));
 		inject(plugin, "config", config);
 		inject(plugin, "configManager", mock(ConfigManager.class));
 		inject(plugin, "clientToolbar", mock(ClientToolbar.class));

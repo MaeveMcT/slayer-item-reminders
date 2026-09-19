@@ -72,6 +72,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private WikiTaskVariantClient wikiTaskVariantClient;
 
 	@Inject
+	private WikiRequiredItemClient wikiRequiredItemClient;
+
+	@Inject
 	private SlayerItemRemindersConfig config;
 
 	@Inject
@@ -96,6 +99,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private boolean variantsLoading;
 	private Instant reminderExpiresAt;
 	private Set<RecommendedItem> recommendations = Collections.emptySet();
+	private Map<String, List<ReminderItem>> wikiRequiredItems = Collections.emptyMap();
 	private ReminderInfoBox requiredInfoBox;
 	private ReminderInfoBox optionalInfoBox;
 
@@ -129,6 +133,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		panel.setSelectionHandler((task, variant) -> { });
 		wikiDropTableClient.reset();
 		wikiTaskVariantClient.reset();
+		wikiRequiredItemClient.reset();
 		bankOpen = false;
 		suppressTaskReminder = false;
 		log.debug("Slayer Item Reminders stopped");
@@ -293,6 +298,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 			{
 				requestVariants(false, false);
 			}
+			requestRequiredItems();
 		}
 	}
 
@@ -498,6 +504,15 @@ public class SlayerItemRemindersPlugin extends Plugin
 		}
 	}
 
+	private void requestRequiredItems()
+	{
+		wikiRequiredItemClient.lookup(result ->
+		{
+			wikiRequiredItems = result;
+			refreshInfoBoxes();
+		});
+	}
+
 	private void requestRecommendations()
 	{
 		TaskDefinition definition = TaskCatalog.get(taskName);
@@ -544,7 +559,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		List<ReminderItem> missingRequired = Collections.emptyList();
 		if (!dismissed && reminderWindowActive && variant != null)
 		{
-			missingRequired = variant.getRequiredItems().stream()
+			missingRequired = getRequiredItems(variant).stream()
 				.filter(item -> !item.isPresent(client))
 				.collect(Collectors.toList());
 		}
@@ -559,6 +574,14 @@ public class SlayerItemRemindersPlugin extends Plugin
 				.collect(Collectors.toList());
 		}
 		updateInfoBox(false, missingOptional);
+	}
+
+	private List<ReminderItem> getRequiredItems(TaskVariant variant)
+	{
+		List<ReminderItem> wikiItems = wikiRequiredItems.get(
+			variant.getWikiPage().toLowerCase(Locale.ENGLISH));
+		return wikiItems == null || wikiItems.isEmpty()
+			? variant.getRequiredItems() : wikiItems;
 	}
 
 	private void updateInfoBox(boolean required, List<ReminderItem> missingItems)
