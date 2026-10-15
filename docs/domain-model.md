@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Remind a player about mechanically required and optionally useful items at the moments they prepare for a Slayer assignment, without becoming a general combat or gear-planning assistant.
+Remind a player about mechanically required and optionally useful items at the moments they prepare for a Slayer assignment, and warn when they engage a monster compatible with a stored assignment instead of their current assignment, without becoming a general combat or gear-planning assistant.
 
 ## Product goals
 
@@ -85,7 +85,7 @@ The **Own herb sack** and **Own seed box** config checkboxes are enabled by defa
 
 ### Reminder presentation
 
-There are at most two infoboxes:
+There are at most two missing-item infoboxes, independently of the check-triggered stored-task counter:
 
 - **Required:** first missing required item's icon, red missing-item count, tooltip listing missing required items.
 - **Optional:** first missing recommendation's icon, yellow missing-item count, tooltip listing missing recommendations.
@@ -117,7 +117,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 | Ordinary task-count change | Update assignment count without starting a new lifecycle |
 | Regular bank/deposit box opens | Enter `BANKING`; hide both infoboxes |
 | Bank/deposit box closes | Enter `ACTIVE`, clear dismissal, restart the ten-second window, reevaluate items, and start/reuse the drop-table lookup without opening the sidebar panel |
-| Check selected on a Slayer helmet or enchanted gem | Enter `ACTIVE`, clear dismissal, restart the ten-second window, and reevaluate items |
+| Check selected on a Slayer helmet, ring, or enchanted gem | Enter `ACTIVE`, clear dismissal, restart the ten-second window, and reevaluate items |
 | Inventory/equipment changes while active | Reevaluate both categories |
 | Owned-container config changes | Immediately reevaluate optional recommendations |
 | Dismiss selected on either infobox | Enter `DISMISSED`; hide both infoboxes |
@@ -137,7 +137,7 @@ Satisfied item conditions affect which infoboxes exist; they do not permanently 
 - An asynchronous response cannot affect a different assignment, completed assignment, or superseded variant selection.
 - A manual dismissal normally wins until bank close or a new assignment; a newly returned optional result is the intentional exception.
 - The plugin never shows reminders while a supported bank interface is open.
-- A task with no missing required items and no enabled derived optional recommendations produces no infobox.
+- A task with no missing required items and no enabled derived optional recommendations produces no missing-item infobox.
 
 ## External boundary
 
@@ -157,6 +157,18 @@ The OSRS Wiki is an asynchronous third-party dependency:
 - Do not persist Wiki caches between RuneLite sessions.
 - Fail silently to the player and log diagnostics at debug level.
 
+## Stored assignments and engagement warnings
+
+Storage has three distinct states: unknown, confirmed empty, or a known assignment. Unlocking task storage does not reveal its contents. The initialized, visible Slayer Rewards Tasks tab exposes the stored count/category/boss through temporary interface varps (`IF4`, `IF5`, `IF6`), as used by RuneLite's [decompiled script9736](https://github.com/runelite/cs2-scripts/blob/master/scripts/%5Bproc%2Cscript9736%5D.cs2). Never interpret those generic varps outside that interface. Resolve assignment names through the same game database mapping as current assignments. The game's challenge count of `-1` means a task with no numeric remaining count, not an empty slot.
+
+Persist observed storage through RuneLite's RuneScape-profile configuration. Restore it at login, clear in-memory knowledge on logout/hop/reconnect, and reject asynchronous results from superseded observations. Unknown storage remains unknown until observed. Previously remembered storage may be stale if changed with this plugin disabled or in another client; opening Tasks refreshes it. Current assignments remain game-synchronized rather than inferred from the remembered slot.
+
+The built-in Slayer counter is identified through its public infobox name (`SlayerPlugin_TaskCounter`), since its class and plugin accessor are not public. Append storage to its tooltip and restore our suffix on shutdown. Reapply after Slayer rebuilds the tooltip. A dedicated stored-task counter is enabled by default but appears only in a ten-second window after Check on a Slayer helm or ring, including charged and eternal variants. An enchanted-gem Check continues to trigger item reminders but does not open the stored-task counter. The counter may coexist with RuneLite's built-in current-task counter. Login, banking, new assignments, combat, and arriving Wiki results never start its window; expiry, logout/hop/reconnect, or shutdown hides it. Repeated checks restart the window. A sidebar storage label remains visible without a current assignment. The stored-task counter's window is independent of the missing-item lifecycle.
+
+Reuse the shared session-cached Wiki variant discovery for stored assignments. Cancellation preserves both the current and stored task requests. Normalize exact NPC names, Wiki display names, page disambiguation, and canonical task singular/plural forms; do not use broad substring matching. Local-player interaction with an attackable matching NPC is an engagement, not a nearby-NPC or scene-scan trigger.
+
+Suppress warnings for identical assignments, an NPC compatible with both assignments, unknown storage, locked storage, another player's engagement, or unavailable/loading current-task discovery. With no current task, a stored-task match can warn. Game messages and RuneLite notifications are enabled by default and independently configurable. Apply a shared 100-game-tick cooldown (about one minute), including engagements with different NPCs. Compatibility is monster-based and deliberately does not promise location-specific task credit.
+
 ## Deferred work
 
 - More robust structured variant filtering and sources
@@ -166,5 +178,5 @@ The OSRS Wiki is an asynchronous third-party dependency:
 - Consumable quantities based on remaining task count
 - Group Ironman shared storage as a bank trigger
 - User-visible Wiki availability indicator
-- Configurable duration, thresholds, networking, colors, and notifications
+- Configurable item-reminder duration, thresholds, networking, colors, and notifications
 - Reconsidering whether item loss should override dismissal or timeout

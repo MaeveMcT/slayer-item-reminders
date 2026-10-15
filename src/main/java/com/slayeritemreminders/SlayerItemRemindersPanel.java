@@ -45,6 +45,8 @@ final class SlayerItemRemindersPanel extends PluginPanel
 	private static final String AUTOMATIC = "Automatic (task default)";
 	private static final HttpUrl WIKI_BASE = HttpUrl.get("https://oldschool.runescape.wiki");
 
+	private final JLabel storedTaskLabel = new JShadowedLabel();
+	private String storedTaskText;
 	private final JLabel taskLabel = new JShadowedLabel();
 	private final JLabel selectedVariantLabel = new JShadowedLabel();
 	private final JLabel wikiLink = new JShadowedLabel("<html><u>View on OSRS Wiki</u></html>");
@@ -71,7 +73,25 @@ final class SlayerItemRemindersPanel extends PluginPanel
 
 		add(buildHeader(), BorderLayout.NORTH);
 		add(buildDisplay(), BorderLayout.CENTER);
+		storedTaskLabel.setForeground(Color.LIGHT_GRAY);
+		add(storedTaskLabel, BorderLayout.SOUTH);
 		showTask(null, new ArrayList<>(), null, VariantLoadState.LOADED);
+	}
+
+	void showStoredTask(String text)
+	{
+		if (!SwingUtilities.isEventDispatchThread())
+		{
+			SwingUtilities.invokeLater(() -> showStoredTask(text));
+			return;
+		}
+		if (!java.util.Objects.equals(storedTaskText, text))
+		{
+			storedTaskText = text;
+			// Swing HTML labels wrap long task names, but never interpret game text as markup.
+			storedTaskLabel.setText(text == null ? "" : "<html>" + text.replace("&", "&amp;")
+				.replace("<", "&lt;").replace(">", "&gt;") + "</html>");
+		}
 	}
 
 	private JPanel buildHeader()

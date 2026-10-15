@@ -3,6 +3,12 @@
 ## Slayer assignment
 The current game-provided task: its name, remaining count, and optional location. An assignment begins when a genuinely new task is detected and ends when it is completed, cancelled, or replaced.
 
+## Stored assignment
+A Slayer assignment set aside through unlocked task storage. Knowledge of the slot is unknown, confirmed empty, or a remembered assignment; unknown and empty are never interchangeable. The remembered assignment belongs to one RuneScape profile.
+
+## Engagement warning
+A reminder that the player is interacting with an attackable monster compatible with their stored assignment but not their current assignment. It does not select an intended variant or guarantee location-specific task credit.
+
 ## Task variant
 A specific monster that can satisfy a broader Slayer assignment. A variant has a display name and Wiki page and may have required-item conditions.
 

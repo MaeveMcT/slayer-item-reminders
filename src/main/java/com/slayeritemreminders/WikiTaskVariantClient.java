@@ -12,10 +12,12 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 
 @Slf4j
+@Singleton
 final class WikiTaskVariantClient
 {
 	private static final String TASK_PAGE_PREFIX = "Slayer task/";
@@ -54,10 +56,15 @@ final class WikiTaskVariantClient
 
 	void cancelPendingExcept(String taskName)
 	{
+		cancelPendingExcept(taskName, null);
+	}
+
+	void cancelPendingExcept(String taskName, String storedTaskName)
+	{
 		List<String> superseded = new ArrayList<>();
 		for (String pendingTask : requests.keySet())
 		{
-			if (!pendingTask.equals(taskName))
+			if (!pendingTask.equals(taskName) && !pendingTask.equals(storedTaskName))
 			{
 				superseded.add(pendingTask);
 			}

@@ -3,6 +3,7 @@ package com.slayeritemreminders;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.Notification;
 
 @ConfigGroup(SlayerItemRemindersConfig.GROUP)
 public interface SlayerItemRemindersConfig extends Config
@@ -30,6 +31,39 @@ public interface SlayerItemRemindersConfig extends Config
 		position = 1
 	)
 	default boolean hasSeedBox()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "storedTaskGameMessage",
+		name = "Stored task game message",
+		description = "Warn in chat when engaging a stored-task monster that does not match your current task",
+		position = 3
+	)
+	default boolean storedTaskGameMessage()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "storedTaskNotification",
+		name = "Stored task notification",
+		description = "Configure sound, screen flash, and desktop notifications for stored-task warnings",
+		position = 4
+	)
+	default Notification storedTaskNotification()
+	{
+		return Notification.ON;
+	}
+
+	@ConfigItem(
+		keyName = "storedTaskInfoBox",
+		name = "Stored task infobox",
+		description = "Show the stored-task counter for 10 seconds after Check on a Slayer helm or ring",
+		position = 5
+	)
+	default boolean storedTaskInfoBox()
 	{
 		return true;
 	}

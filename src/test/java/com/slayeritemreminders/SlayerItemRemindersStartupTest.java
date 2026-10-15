@@ -81,6 +81,39 @@ public class SlayerItemRemindersStartupTest
 	}
 
 	@Test
+	public void onlyHelmAndRingChecksTriggerStoredInfoBox() throws Exception
+	{
+		int[] items = {ItemID.SLAYER_HELM, ItemID.SLAYER_RING_8,
+			ItemID.SLAYER_RING_1, ItemID.SLAYER_RING_ETERNAL, ItemID.SLAYER_GEM};
+		for (int item : items)
+		{
+			Harness harness = createHarness(GameState.LOGGED_IN);
+			harness.plugin.startUp();
+			Widget widget = mock(Widget.class);
+			when(widget.getItemId()).thenReturn(item);
+			when(widget.getDynamicChildren()).thenReturn(new Widget[0]);
+			when(harness.client.getWidget(123)).thenReturn(widget);
+			MenuEntry entry = mock(MenuEntry.class);
+			when(entry.getType()).thenReturn(MenuAction.CC_OP);
+			when(entry.getParam0()).thenReturn(-1);
+			when(entry.getParam1()).thenReturn(123);
+			when(entry.getOption()).thenReturn("Teleport");
+			harness.plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
+			verify(harness.storedTaskReminder, never()).onTaskChecked();
+			when(entry.getOption()).thenReturn("Check");
+			harness.plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
+			if (item == ItemID.SLAYER_GEM)
+			{
+				verify(harness.storedTaskReminder, never()).onTaskChecked();
+			}
+			else
+			{
+				verify(harness.storedTaskReminder).onTaskChecked();
+			}
+		}
+	}
+
+	@Test
 	public void doesNotShowRecommendationsPlayerDoesNotOwn() throws Exception
 	{
 		Harness harness = createHarness(GameState.LOGIN_SCREEN);
@@ -276,6 +309,8 @@ public class SlayerItemRemindersStartupTest
 		when(config.hasSeedBox()).thenReturn(hasSeedBox);
 
 		SlayerItemRemindersPlugin plugin = new SlayerItemRemindersPlugin();
+		StoredTaskReminder storedTaskReminder = mock(StoredTaskReminder.class);
+		inject(plugin, "storedTaskReminder", storedTaskReminder);
 		inject(plugin, "client", client);
 		inject(plugin, "clientThread", clientThread);
 		inject(plugin, "itemManager", itemManager);
@@ -289,7 +324,7 @@ public class SlayerItemRemindersStartupTest
 		inject(plugin, "clientToolbar", clientToolbar);
 		inject(plugin, "panel", new SlayerItemRemindersPanel());
 		return new Harness(plugin, client, infoBoxManager, clientToolbar,
-			wikiTaskVariantClient);
+			wikiTaskVariantClient, storedTaskReminder);
 	}
 
 	private static void inject(Object target, String fieldName, Object value) throws Exception
@@ -306,16 +341,18 @@ public class SlayerItemRemindersStartupTest
 		private final InfoBoxManager infoBoxManager;
 		private final ClientToolbar clientToolbar;
 		private final WikiTaskVariantClient wikiTaskVariantClient;
+		private final StoredTaskReminder storedTaskReminder;
 
 		private Harness(SlayerItemRemindersPlugin plugin, Client client,
 			InfoBoxManager infoBoxManager, ClientToolbar clientToolbar,
-			WikiTaskVariantClient wikiTaskVariantClient)
+			WikiTaskVariantClient wikiTaskVariantClient, StoredTaskReminder storedTaskReminder)
 		{
 			this.plugin = plugin;
 			this.client = client;
 			this.infoBoxManager = infoBoxManager;
 			this.clientToolbar = clientToolbar;
 			this.wikiTaskVariantClient = wikiTaskVariantClient;
+			this.storedTaskReminder = storedTaskReminder;
 		}
 	}
 }

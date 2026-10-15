@@ -23,11 +23,11 @@ import net.runelite.api.MenuAction;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.InteractingChanged;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
-import net.runelite.api.gameval.DBTableID;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -51,8 +51,8 @@ import net.runelite.client.util.ImageUtil;
 @Slf4j
 @PluginDescriptor(
 	name = "Slayer Item Reminders",
-	description = "Reminds you which items to bring for Slayer tasks",
-	tags = {"slayer", "items", "reminders"}
+	description = "Reminds you which items to bring for Slayer tasks and when to use your stored task",
+	tags = {"slayer", "items", "reminders", "storage", "notifications"}
 )
 public class SlayerItemRemindersPlugin extends Plugin
 {
@@ -91,6 +91,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Inject
 	private SlayerItemRemindersPanel panel;
 
+	@Inject
+	private StoredTaskReminder storedTaskReminder;
+
 	private NavigationButton navigationButton;
 	private String taskName;
 	private boolean suppressTaskReminder;
@@ -113,6 +116,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		storedTaskReminder.start(this);
 		panel.setSelectionHandler((task, variant) ->
 			clientThread.invoke(() -> selectVariantFromPanel(task, variant)));
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/panel_icon.png");
@@ -134,6 +138,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		storedTaskReminder.stop();
 		clearAssignment();
 		clientToolbar.removeNavigation(navigationButton);
 		navigationButton = null;
@@ -155,11 +160,15 @@ public class SlayerItemRemindersPlugin extends Plugin
 			case HOPPING:
 			case LOGGING_IN:
 			case CONNECTION_LOST:
+				storedTaskReminder.suspend();
 				suppressTaskReminder = true;
 				loginSynchronizationPending = false;
 				panelOpenGeneration++;
 				bankOpen = false;
 				removeInfoBoxes();
+				break;
+			case LOGIN_SCREEN:
+				storedTaskReminder.suspend();
 				break;
 			case LOGGED_IN:
 				beginLoginSynchronization();
@@ -252,9 +261,16 @@ public class SlayerItemRemindersPlugin extends Plugin
 			}
 		}
 		itemId = ItemVariationMapping.map(itemId);
-		if (itemId == ItemID.SLAYER_HELM || itemId == ItemID.SLAYER_GEM)
+		boolean helmOrRing = itemId == ItemID.SLAYER_HELM || itemId == ItemID.SLAYER_RING_8;
+		if (helmOrRing || itemId == ItemID.SLAYER_GEM)
 		{
 			updateTask();
+			if (helmOrRing)
+			{
+				storedTaskReminder.tick(taskName, availableVariants,
+					taskName == null || variantLoadState == VariantLoadState.LOADED);
+				storedTaskReminder.onTaskChecked();
+			}
 			if (taskName != null)
 			{
 				activateReminderWindow(false);
@@ -272,6 +288,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 			suppressTaskReminder = false;
 		}
 
+		storedTaskReminder.tick(taskName, availableVariants,
+			taskName == null || variantLoadState == VariantLoadState.LOADED);
+
 		if ((reminderWindowActive || optionalOverrideVisible) && reminderExpiresAt != null
 			&& !Instant.now().isBefore(reminderExpiresAt))
 		{
@@ -279,6 +298,12 @@ public class SlayerItemRemindersPlugin extends Plugin
 			optionalOverrideVisible = false;
 			removeInfoBoxes();
 		}
+	}
+
+	@Subscribe
+	public void onInteractingChanged(InteractingChanged event)
+	{
+		storedTaskReminder.onInteractingChanged(event);
 	}
 
 	@Subscribe
@@ -335,7 +360,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void updateTask()
 	{
 		int amount = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
-		if (amount <= 0)
+		if (amount <= 0 && amount != -1)
 		{
 			if (taskName != null)
 			{
@@ -378,35 +403,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 
 	private String readTaskName()
 	{
-		int taskId = client.getVarpValue(VarPlayerID.SLAYER_TARGET);
-		int taskRow;
-		if (taskId == 98)
-		{
-			List<Integer> bossRows = client.getDBRowsByValue(
-				DBTableID.SlayerTaskSublist.ID,
-				DBTableID.SlayerTaskSublist.COL_TASK_SUBTABLE_ID,
-				0,
-				client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID));
-			if (bossRows.isEmpty())
-			{
-				return null;
-			}
-			taskRow = (Integer) client.getDBTableField(
-				bossRows.get(0), DBTableID.SlayerTaskSublist.COL_TASK, 0)[0];
-		}
-		else
-		{
-			List<Integer> taskRows = client.getDBRowsByValue(
-				DBTableID.SlayerTask.ID, DBTableID.SlayerTask.COL_ID, 0, taskId);
-			if (taskRows.isEmpty())
-			{
-				return null;
-			}
-			taskRow = taskRows.get(0);
-		}
-
-		return (String) client.getDBTableField(
-			taskRow, DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
+		return TaskNameResolver.resolve(client,
+			client.getVarpValue(VarPlayerID.SLAYER_TARGET),
+			client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID));
 	}
 
 	private void activateReminderWindow(boolean offerVariantSelection)
@@ -432,7 +431,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 	private void requestVariants(boolean openPanelWhenAmbiguous,
 		boolean requestRecommendationsWhenUnambiguous)
 	{
-		wikiTaskVariantClient.cancelPendingExcept(taskName);
+		wikiTaskVariantClient.cancelPendingExcept(taskName, storedTaskReminder.getStoredTaskName());
 		variantLoadState = VariantLoadState.LOADING;
 		updateVariantPanel();
 		String requestedTask = taskName;
@@ -740,7 +739,7 @@ public class SlayerItemRemindersPlugin extends Plugin
 		updateVariantPanel();
 		recommendations = Collections.emptySet();
 		wikiDropTableClient.cancelPendingExcept(null);
-		wikiTaskVariantClient.cancelPendingExcept(null);
+		wikiTaskVariantClient.cancelPendingExcept(null, storedTaskReminder.getStoredTaskName());
 		dismissed = false;
 		optionalOverrideVisible = false;
 		reminderWindowActive = false;

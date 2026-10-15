@@ -51,6 +51,27 @@ public class WikiTaskVariantClientTest
 		assertEquals("Mystery boss", result.get().getVariants().get(0).getWikiPage());
 	}
 
+	@Test
+	public void preservesBothCurrentAndStoredRequestsWhenCancellingSupersededTasks()
+	{
+		WikiRequestManager manager = mock(WikiRequestManager.class);
+		WikiRequestManager.RequestHandle current = mock(WikiRequestManager.RequestHandle.class);
+		WikiRequestManager.RequestHandle stored = mock(WikiRequestManager.RequestHandle.class);
+		WikiRequestManager.RequestHandle obsolete = mock(WikiRequestManager.RequestHandle.class);
+		when(manager.request(any(HttpUrl.Builder.class), any(), any()))
+			.thenReturn(current, stored, obsolete);
+		WikiTaskVariantClient client = new WikiTaskVariantClient(manager);
+		client.lookup("Gargoyles", result -> { });
+		client.lookup("Blue dragons", result -> { });
+		client.lookup("Bears", result -> { });
+		client.cancelPendingExcept("Gargoyles", "Blue dragons");
+		org.mockito.Mockito.verify(obsolete).cancel();
+		org.mockito.Mockito.verifyNoInteractions(current, stored);
+		client.reset();
+		org.mockito.Mockito.verify(current).cancel();
+		org.mockito.Mockito.verify(stored).cancel();
+	}
+
 	private static JsonObject missingPage()
 	{
 		return json("{\"error\":{\"code\":\"missingtitle\"}}");
