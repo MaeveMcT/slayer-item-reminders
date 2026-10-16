@@ -1,7 +1,6 @@
 package com.slayeritemreminders;
 
 import com.google.gson.Gson;
-import java.time.Instant;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,15 +14,12 @@ import net.runelite.api.NPC;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.events.InteractingChanged;
 import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
-import net.runelite.client.ui.overlay.infobox.Counter;
 import net.runelite.client.ui.overlay.infobox.InfoBox;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 
@@ -38,7 +34,6 @@ final class StoredTaskReminder
 	private final SlayerItemRemindersConfig config;
 	private final WikiTaskVariantClient variants;
 	private final InfoBoxManager infoBoxes;
-	private final ItemManager itemManager;
 	private final Notifier notifier;
 	private final SlayerItemRemindersPanel panel;
 	private final Gson gson;
@@ -54,12 +49,10 @@ final class StoredTaskReminder
 	private boolean currentVariantsReady;
 	private int generation;
 	private int nextAlertTick;
-	private Counter storedInfoBox;
-	private Instant checkExpiresAt;
 
 	@Inject
 	StoredTaskReminder(Client client, ConfigManager configManager, SlayerItemRemindersConfig config,
-		WikiTaskVariantClient variants, InfoBoxManager infoBoxes, ItemManager itemManager,
+		WikiTaskVariantClient variants, InfoBoxManager infoBoxes,
 		Notifier notifier, SlayerItemRemindersPanel panel, Gson gson)
 	{
 		this.client = client;
@@ -67,7 +60,6 @@ final class StoredTaskReminder
 		this.config = config;
 		this.variants = variants;
 		this.infoBoxes = infoBoxes;
-		this.itemManager = itemManager;
 		this.notifier = notifier;
 		this.panel = panel;
 		this.gson = gson;
@@ -93,8 +85,7 @@ final class StoredTaskReminder
 		currentMatcher = null;
 		currentTask = null;
 		nextAlertTick = 0;
-		checkExpiresAt = null;
-		clearPresentation();
+		restoreTooltips();
 		setPanelText(null);
 	}
 
@@ -150,14 +141,6 @@ final class StoredTaskReminder
 			observeRewards();
 		}
 		present(unlocked);
-	}
-
-	void onTaskChecked()
-	{
-		if (owner != null && client.getGameState() == GameState.LOGGED_IN)
-		{
-			checkExpiresAt = Instant.now().plus(SlayerItemRemindersPlugin.REMINDER_DURATION);
-		}
 	}
 
 	private void observeRewards()
@@ -250,7 +233,6 @@ final class StoredTaskReminder
 		restoreTooltips();
 		if (!unlocked)
 		{
-			removeStoredInfoBox();
 			setPanelText("Task storage is locked");
 			return;
 		}
@@ -267,28 +249,6 @@ final class StoredTaskReminder
 				decorated.put(box, suffix);
 			}
 		}
-		if (config.storedTaskInfoBox() && checkExpiresAt != null && Instant.now().isBefore(checkExpiresAt)
-			&& stored != null && stored.name != null)
-		{
-			if (storedInfoBox == null)
-			{
-				storedInfoBox = new Counter(itemManager.getImage(ItemID.SLAYER_GEM), owner, stored.amount)
-				{
-					@Override
-					public String getText()
-					{
-						return getCount() < 0 ? "S" : super.getText();
-					}
-				};
-				infoBoxes.addInfoBox(storedInfoBox);
-			}
-			storedInfoBox.setCount(stored.amount);
-			storedInfoBox.setTooltip(text);
-		}
-		else
-		{
-			removeStoredInfoBox();
-		}
 	}
 
 	private void setPanelText(String text)
@@ -298,12 +258,6 @@ final class StoredTaskReminder
 			panelText = text;
 			panel.showStoredTask(text);
 		}
-	}
-
-	private void clearPresentation()
-	{
-		restoreTooltips();
-		removeStoredInfoBox();
 	}
 
 	private void restoreTooltips()
@@ -317,15 +271,6 @@ final class StoredTaskReminder
 			}
 		});
 		decorated.clear();
-	}
-
-	private void removeStoredInfoBox()
-	{
-		if (storedInfoBox != null)
-		{
-			infoBoxes.removeInfoBox(storedInfoBox);
-			storedInfoBox = null;
-		}
 	}
 
 	@Value

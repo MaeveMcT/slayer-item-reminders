@@ -22,7 +22,6 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.Notification;
-import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.ui.overlay.infobox.Counter;
 import net.runelite.client.ui.overlay.infobox.InfoBox;
@@ -42,7 +41,6 @@ public class StoredTaskReminderTest
 	private final SlayerItemRemindersConfig config = mock(SlayerItemRemindersConfig.class);
 	private final WikiTaskVariantClient variants = mock(WikiTaskVariantClient.class);
 	private final InfoBoxManager infoBoxes = mock(InfoBoxManager.class);
-	private final ItemManager itemManager = mock(ItemManager.class);
 	private final Notifier notifier = mock(Notifier.class);
 	private final SlayerItemRemindersPanel panel = mock(SlayerItemRemindersPanel.class);
 	private final Player player = mock(Player.class);
@@ -59,7 +57,6 @@ public class StoredTaskReminderTest
 		when(configManager.getRSProfileKey()).thenReturn("profile-a");
 		when(config.storedTaskGameMessage()).thenReturn(true);
 		when(config.storedTaskNotification()).thenReturn(Notification.OFF);
-		when(config.storedTaskInfoBox()).thenReturn(true);
 		when(infoBoxes.getInfoBoxes()).thenAnswer(i -> new ArrayList<>(boxes));
 		doAnswer(i -> { boxes.add(i.getArgument(0)); return null; }).when(infoBoxes).addInfoBox(any());
 		doAnswer(i -> { boxes.remove(i.getArgument(0)); return null; }).when(infoBoxes).removeInfoBox(any());
@@ -74,7 +71,7 @@ public class StoredTaskReminderTest
 		when(npc.getTransformedComposition()).thenReturn(composition);
 		when(npc.getName()).thenReturn("Vorkath");
 		reminder = new StoredTaskReminder(client, configManager, config, variants,
-			infoBoxes, itemManager, notifier, panel, new Gson());
+			infoBoxes, notifier, panel, new Gson());
 		reminder.start(mock(Plugin.class));
 	}
 
@@ -253,19 +250,14 @@ public class StoredTaskReminderTest
 		openTasks(-1, 1, "TzTok-Jad");
 		tick("Gargoyles");
 		assertEquals("TzTok-Jad", reminder.getStoredTaskName());
-		reminder.onTaskChecked();
-		tick("Gargoyles");
-		assertEquals("S", boxes.get(0).getText());
-		assertEquals("Stored: TzTok-Jad", boxes.get(0).getTooltip());
+		verify(panel).showStoredTask("Stored: TzTok-Jad");
+		assertTrue(boxes.isEmpty());
 	}
 
 	@Test
-	public void checkedInfoBoxCanBeDisabledAndHopCleansUp()
+	public void hopClearsStoredTaskWarnings()
 	{
 		saved("Blue dragons");
-		when(config.storedTaskInfoBox()).thenReturn(false);
-		tick("Gargoyles");
-		reminder.onTaskChecked();
 		tick("Gargoyles");
 		assertTrue(boxes.isEmpty());
 		reminder.suspend();
@@ -274,56 +266,13 @@ public class StoredTaskReminderTest
 	}
 
 	@Test
-	public void checkedCounterIsReusedAndRemovedOnStop()
+	public void storedTaskNeverCreatesAStandaloneCounter()
 	{
 		saved("Blue dragons");
 		tick("Gargoyles");
-		assertTrue(boxes.isEmpty());
-		reminder.onTaskChecked();
-		tick("Gargoyles");
-		InfoBox first = boxes.get(0);
-		tick("Gargoyles");
-		assertSame(first, boxes.get(0));
-		assertEquals("120", first.getText());
-		reminder.stop();
-		assertTrue(boxes.isEmpty());
-	}
-
-	@Test
-	public void checkedInfoBoxExpiresAndDoesNotReappearOnOrdinaryTicks() throws Exception
-	{
-		saved("Blue dragons");
-		tick("Gargoyles");
-		reminder.onTaskChecked();
-		tick("Gargoyles");
-		assertEquals(1, boxes.size());
-		java.lang.reflect.Field expiry = StoredTaskReminder.class.getDeclaredField("checkExpiresAt");
-		expiry.setAccessible(true);
-		expiry.set(reminder, java.time.Instant.now().minusSeconds(1));
-		tick("Gargoyles");
-		tick("Gargoyles");
-		assertTrue(boxes.isEmpty());
-		reminder.onTaskChecked();
-		tick("Gargoyles");
-		assertEquals(1, boxes.size());
-		reminder.suspend();
-		tick("Gargoyles");
-		assertTrue(boxes.isEmpty());
-	}
-
-	@Test
-	public void checkCanShowStoredTaskAlongsideBuiltInCounter()
-	{
-		saved("Blue dragons");
-		InfoBox builtIn = mock(InfoBox.class);
-		when(builtIn.getName()).thenReturn("SlayerPlugin_TaskCounter");
-		when(builtIn.render()).thenReturn(true);
-		boxes.add(builtIn);
-		tick("Gargoyles");
-		assertEquals(1, boxes.size());
-		reminder.onTaskChecked();
-		tick("Gargoyles");
-		assertEquals(2, boxes.size());
+		tick(null);
+		verify(infoBoxes, never()).addInfoBox(any());
+		verify(panel).showStoredTask("Stored: Blue dragons × 120");
 	}
 
 	@Test

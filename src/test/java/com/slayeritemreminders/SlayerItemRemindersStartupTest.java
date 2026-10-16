@@ -81,7 +81,7 @@ public class SlayerItemRemindersStartupTest
 	}
 
 	@Test
-	public void onlyHelmAndRingChecksTriggerStoredInfoBox() throws Exception
+	public void helmRingAndGemChecksOnlyTriggerItemReminders() throws Exception
 	{
 		int[] items = {ItemID.SLAYER_HELM, ItemID.SLAYER_RING_8,
 			ItemID.SLAYER_RING_1, ItemID.SLAYER_RING_ETERNAL, ItemID.SLAYER_GEM};
@@ -99,17 +99,10 @@ public class SlayerItemRemindersStartupTest
 			when(entry.getParam1()).thenReturn(123);
 			when(entry.getOption()).thenReturn("Teleport");
 			harness.plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
-			verify(harness.storedTaskReminder, never()).onTaskChecked();
+			verify(harness.infoBoxManager, never()).addInfoBox(any());
 			when(entry.getOption()).thenReturn("Check");
 			harness.plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
-			if (item == ItemID.SLAYER_GEM)
-			{
-				verify(harness.storedTaskReminder, never()).onTaskChecked();
-			}
-			else
-			{
-				verify(harness.storedTaskReminder).onTaskChecked();
-			}
+			verify(harness.infoBoxManager, atLeastOnce()).addInfoBox(any(ReminderInfoBox.class));
 		}
 	}
 

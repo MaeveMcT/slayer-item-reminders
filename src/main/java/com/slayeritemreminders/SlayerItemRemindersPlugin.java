@@ -261,16 +261,9 @@ public class SlayerItemRemindersPlugin extends Plugin
 			}
 		}
 		itemId = ItemVariationMapping.map(itemId);
-		boolean helmOrRing = itemId == ItemID.SLAYER_HELM || itemId == ItemID.SLAYER_RING_8;
-		if (helmOrRing || itemId == ItemID.SLAYER_GEM)
+		if (itemId == ItemID.SLAYER_HELM || itemId == ItemID.SLAYER_RING_8 || itemId == ItemID.SLAYER_GEM)
 		{
 			updateTask();
-			if (helmOrRing)
-			{
-				storedTaskReminder.tick(taskName, availableVariants,
-					taskName == null || variantLoadState == VariantLoadState.LOADED);
-				storedTaskReminder.onTaskChecked();
-			}
 			if (taskName != null)
 			{
 				activateReminderWindow(false);

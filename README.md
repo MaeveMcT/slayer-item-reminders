@@ -9,7 +9,7 @@ The plugin shows short-lived required and optional infoboxes after a new assignm
 Open **Slayer Rewards → Tasks** once to learn your stored assignment. The plugin remembers it separately for each RuneScape profile and refreshes it whenever that tab is visible. Before the first observation, storage is shown as **unknown**, not empty. If storage changes while the plugin is disabled or on another client, reopen the tab to refresh it.
 
 - The built-in Slayer counter's tooltip includes your stored task.
-- The sidebar also shows storage, even without an active task. The stored-task infobox is enabled by default but appears only for 10 seconds after **Check** on a Slayer helm or ring (including charged and eternal variants). It can appear alongside RuneLite's current-task counter; login, banking, task assignment, and combat do not open it.
+- The sidebar also shows storage, even without an active task. No separate stored-task infobox is created.
 - Engaging a matching monster or boss produces a game message and RuneLite notification by default. Configure sound, screen flash, and desktop alerts through **Stored task notification**.
 - Warnings are limited to once per minute. Identical current/stored tasks and monsters matching both assignments do not warn.
 

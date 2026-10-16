@@ -85,7 +85,7 @@ The **Own herb sack** and **Own seed box** config checkboxes are enabled by defa
 
 ### Reminder presentation
 
-There are at most two missing-item infoboxes, independently of the check-triggered stored-task counter:
+There are at most two missing-item infoboxes:
 
 - **Required:** first missing required item's icon, red missing-item count, tooltip listing missing required items.
 - **Optional:** first missing recommendation's icon, yellow missing-item count, tooltip listing missing recommendations.
@@ -163,7 +163,7 @@ Storage has three distinct states: unknown, confirmed empty, or a known assignme
 
 Persist observed storage through RuneLite's RuneScape-profile configuration. Restore it at login, clear in-memory knowledge on logout/hop/reconnect, and reject asynchronous results from superseded observations. Unknown storage remains unknown until observed. Previously remembered storage may be stale if changed with this plugin disabled or in another client; opening Tasks refreshes it. Current assignments remain game-synchronized rather than inferred from the remembered slot.
 
-The built-in Slayer counter is identified through its public infobox name (`SlayerPlugin_TaskCounter`), since its class and plugin accessor are not public. Append storage to its tooltip and restore our suffix on shutdown. Reapply after Slayer rebuilds the tooltip. A dedicated stored-task counter is enabled by default but appears only in a ten-second window after Check on a Slayer helm or ring, including charged and eternal variants. An enchanted-gem Check continues to trigger item reminders but does not open the stored-task counter. The counter may coexist with RuneLite's built-in current-task counter. Login, banking, new assignments, combat, and arriving Wiki results never start its window; expiry, logout/hop/reconnect, or shutdown hides it. Repeated checks restart the window. A sidebar storage label remains visible without a current assignment. The stored-task counter's window is independent of the missing-item lifecycle.
+The built-in Slayer counter is identified through its public infobox name (`SlayerPlugin_TaskCounter`), since its class and plugin accessor are not public. Append storage to its tooltip and restore our suffix on shutdown. Reapply after Slayer rebuilds the tooltip. Storage is presented through that tooltip and a sidebar label, which remains visible without a current assignment. No dedicated stored-task counter or counter setting exists. Check on a Slayer helm, ring, or enchanted gem continues to trigger missing-item reminders only.
 
 Reuse the shared session-cached Wiki variant discovery for stored assignments. Cancellation preserves both the current and stored task requests. Normalize exact NPC names, Wiki display names, page disambiguation, and canonical task singular/plural forms; do not use broad substring matching. Local-player interaction with an attackable matching NPC is an engagement, not a nearby-NPC or scene-scan trigger.
 

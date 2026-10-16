@@ -11,11 +11,10 @@ public class SlayerItemRemindersConfigTest
 	private final SlayerItemRemindersConfig config = new SlayerItemRemindersConfig() { };
 
 	@Test
-	public void enablesStoredTaskWarningsAndCheckInfoBoxByDefault()
+	public void enablesStoredTaskWarningsByDefault()
 	{
 		assertTrue(config.storedTaskGameMessage());
 		assertEquals(Notification.ON, config.storedTaskNotification());
-		assertTrue(config.storedTaskInfoBox());
 	}
 
 	@Test

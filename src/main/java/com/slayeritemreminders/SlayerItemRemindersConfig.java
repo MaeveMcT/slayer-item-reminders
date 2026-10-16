@@ -58,17 +58,6 @@ public interface SlayerItemRemindersConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "storedTaskInfoBox",
-		name = "Stored task infobox",
-		description = "Show the stored-task counter for 10 seconds after Check on a Slayer helm or ring",
-		position = 5
-	)
-	default boolean storedTaskInfoBox()
-	{
-		return true;
-	}
-
-	@ConfigItem(
 		keyName = CURRENT_TASK_VARIANT_KEY,
 		name = "Current task variant",
 		description = "The assignment-scoped variant selected in the Slayer Item Reminders panel",
