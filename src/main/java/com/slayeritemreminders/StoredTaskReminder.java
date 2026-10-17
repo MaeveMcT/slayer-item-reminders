@@ -5,6 +5,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.Value;
 import net.runelite.api.Client;
@@ -189,7 +190,12 @@ final class StoredTaskReminder
 			{
 				if (owner != null && generation == requestedGeneration)
 				{
-					storedMatcher = new TaskNpcMatcher(assignment.name, result.getVariants());
+					// Stored slots do not retain master/location: conditional substitutes cannot
+					// safely establish a match. Current-task matching still includes them to
+					// conservatively suppress a potentially overlapping warning.
+					storedMatcher = new TaskNpcMatcher(assignment.name, result.getVariants().stream()
+						.filter(variant -> variant.getEligibilityNote() == null)
+						.collect(Collectors.toList()));
 				}
 			});
 		}

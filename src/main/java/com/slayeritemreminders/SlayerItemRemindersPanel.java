@@ -290,7 +290,8 @@ final class SlayerItemRemindersPanel extends PluginPanel
 
 			String selectedName = selected == null ? AUTOMATIC : selected.getName();
 			selectedVariantLabel.setText(selectedName);
-			selectedVariantLabel.setToolTipText(selectedName);
+			selectedVariantLabel.setToolTipText(selected != null && selected.getEligibilityNote() != null
+				? selectedName + " — " + selected.getEligibilityNote() : selectedName);
 			TaskVariant linkedVariant = selected != null ? selected
 				: variants.isEmpty() ? null : variants.get(0);
 			selectedWikiPage = linkedVariant == null ? null : linkedVariant.getWikiPage();
@@ -305,7 +306,7 @@ final class SlayerItemRemindersPanel extends PluginPanel
 			}
 			else if (loadState == VariantLoadState.UNAVAILABLE)
 			{
-				statusLabel.setText("Wiki variants unavailable; showing fallback");
+				statusLabel.setText("Wiki discovery incomplete; some variants unavailable");
 				statusLabel.setForeground(ColorScheme.PROGRESS_ERROR_COLOR);
 			}
 			else
@@ -415,6 +416,16 @@ final class SlayerItemRemindersPanel extends PluginPanel
 				add(selectedLabel, BorderLayout.EAST);
 			}
 
+			JLabel eligibilityLabel = null;
+			if (variant != null && variant.getEligibilityNote() != null)
+			{
+				eligibilityLabel = new JShadowedLabel("<html><body style='width:145px'>"
+					+ escapeHtml(variant.getEligibilityNote()) + "</body></html>");
+				eligibilityLabel.setForeground(ColorScheme.BRAND_ORANGE);
+				eligibilityLabel.setFont(FontManager.getRunescapeSmallFont());
+				add(eligibilityLabel, BorderLayout.SOUTH);
+			}
+
 			MouseAdapter listener = new MouseAdapter()
 			{
 				@Override
@@ -443,6 +454,10 @@ final class SlayerItemRemindersPanel extends PluginPanel
 			};
 			addMouseListener(listener);
 			nameLabel.addMouseListener(listener);
+			if (eligibilityLabel != null)
+			{
+				eligibilityLabel.addMouseListener(listener);
+			}
 		}
 	}
 }

@@ -1,0 +1,55 @@
+<!-- Relevant source rows captured from https://oldschool.runescape.wiki/w/Boss_Slayer via action=parse. -->
+==Overview==
+Konar is a unique exception to boss assignments; while the [[deranged archaeologist]] is an acceptable substitute for the [[crazy archaeologist]], this does not apply to her tasks.
+
+==Assignable bosses==
+Only the following bosses can be directly assigned as a Slayer task:
+{| class="wikitable sortable lighttable"
+!colspan=2|Boss
+!Location
+!Slayer level
+!Other requirements
+|-
+|{{ilinkt|Barrows brothers|pic=Verac's helm}}<br/><sub>(not [[Barrows chest|chests]])</sub>
+|[[Morytania]]
+|{{SCP|Slayer|1}}
+|{{SCP|Quest}} [[Priest in Peril]]
+|-
+|{{ilinkt|Callisto|pic=Callisto cub}}<br/><sub>([[Artio]] can be killed instead)</sub>
+|[[Callisto's Den]]
+|{{SCP|Slayer|1}}
+|{{NA}}
+|-
+|{{ilinkt|Crazy archaeologist|pic=Fedora}}<br/><sub>([[Deranged archaeologist]] can be killed instead)</sub>
+|[[Wilderness]]
+|{{SCP|Slayer|1}}
+|{{NA}}
+|-
+|{{ilinkt|Venenatis|pic=Venenatis spiderling}}<br/><sub>([[Spindel]] may be killed instead)</sub>
+|[[Silk Chasm]]
+|{{SCP|Slayer|1}}
+|{{NA}}
+|-
+|{{ilinkt|Vet'ion|pic=Vet'ion Jr.}}
+<sub>([[Calvar'ion]] may be killed instead)</sub>
+|[[Vet'ion's Rest]]
+|{{SCP|Slayer|1}}
+|{{NA}}
+|}
+
+== Unassignable bosses ==
+{| class="wikitable sortable lighttable"
+!Boss
+!Location
+!Slayer
+!Combat
+!Task
+!Quest requirements
+|-
+|[[Scurrius]]
+|[[Varrock Sewers]]
+|{{SCP|Slayer|1}}
+|{{SCP|Combat|1}}
+|[[Slayer task/Rats|Rats]]
+|{{NA}}
+|}

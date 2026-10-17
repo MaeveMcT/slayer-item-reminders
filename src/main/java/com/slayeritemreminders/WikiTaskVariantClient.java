@@ -26,6 +26,10 @@ final class WikiTaskVariantClient
 	private final Map<String, TaskVariantDiscoveryResult> sessionResults = new HashMap<>();
 	private final Map<String, List<Consumer<TaskVariantDiscoveryResult>>> listeners = new HashMap<>();
 	private final Map<String, WikiRequestManager.RequestHandle> requests = new HashMap<>();
+	private final Set<String> bossWaiting = new LinkedHashSet<>();
+	private Map<String, List<TaskVariant>> bossTasks;
+	private WikiRequestManager.RequestHandle bossRequest;
+	private long bossGeneration;
 
 	@Inject
 	WikiTaskVariantClient(WikiRequestManager requestManager)
@@ -51,7 +55,83 @@ final class WikiTaskVariantClient
 		pageListeners = new ArrayList<>();
 		pageListeners.add(listener);
 		listeners.put(taskName, pageListeners);
-		requestCandidate(taskName, taskPageCandidates(taskName), 0);
+		if (bossTasks != null)
+		{
+			discover(taskName);
+			return;
+		}
+		bossWaiting.add(taskName);
+		if (bossRequest == null)
+		{
+			requestBossTasks();
+		}
+	}
+
+	private void requestBossTasks()
+	{
+		long generation = ++bossGeneration;
+		HttpUrl.Builder url = WikiRequestManager.apiUrl()
+			.addQueryParameter("action", "parse")
+			.addQueryParameter("page", "Boss Slayer")
+			.addQueryParameter("prop", "wikitext")
+			.addQueryParameter("redirects", "1")
+			.addQueryParameter("format", "json");
+		bossRequest = requestManager.request(url, root ->
+		{
+			if (generation != bossGeneration)
+			{
+				return;
+			}
+			try
+			{
+				bossTasks = WikiBossTaskParser.parse(root.getAsJsonObject("parse")
+					.getAsJsonObject("wikitext").get("*").getAsString());
+			}
+			catch (Exception exception)
+			{
+				log.debug("Unable to parse Boss Slayer substitutes; using task-page discovery", exception);
+			}
+			finishBossRequest();
+		}, exception ->
+		{
+			if (generation == bossGeneration)
+			{
+				log.debug("Unable to retrieve Boss Slayer substitutes; using task-page discovery", exception);
+				finishBossRequest();
+			}
+		});
+	}
+
+	private void finishBossRequest()
+	{
+		bossRequest = null;
+		List<String> waiting = new ArrayList<>(bossWaiting);
+		bossWaiting.clear();
+		waiting.forEach(this::discover);
+	}
+
+	private List<TaskVariant> bossVariants(String taskName)
+	{
+		TaskDefinition definition = TaskCatalog.get(taskName);
+		String page = definition == null ? taskName : definition.getVariants().get(0).getWikiPage();
+		return bossTasks == null ? null : bossTasks.get(WikiBossTaskParser.key(page));
+	}
+
+	private void discover(String taskName)
+	{
+		if (!listeners.containsKey(taskName))
+		{
+			return;
+		}
+		List<TaskVariant> bosses = bossVariants(taskName);
+		if (bosses != null && bosses.size() > 1)
+		{
+			deliver(taskName, TaskVariantDiscoveryResult.loaded(bosses));
+		}
+		else
+		{
+			requestCandidate(taskName, taskPageCandidates(taskName), 0);
+		}
 	}
 
 	void cancelPendingExcept(String taskName)
@@ -62,7 +142,7 @@ final class WikiTaskVariantClient
 	void cancelPendingExcept(String taskName, String storedTaskName)
 	{
 		List<String> superseded = new ArrayList<>();
-		for (String pendingTask : requests.keySet())
+		for (String pendingTask : listeners.keySet())
 		{
 			if (!pendingTask.equals(taskName) && !pendingTask.equals(storedTaskName))
 			{
@@ -71,8 +151,19 @@ final class WikiTaskVariantClient
 		}
 		for (String pendingTask : superseded)
 		{
-			requests.remove(pendingTask).cancel();
+			WikiRequestManager.RequestHandle request = requests.remove(pendingTask);
+			if (request != null)
+			{
+				request.cancel();
+			}
+			bossWaiting.remove(pendingTask);
 			listeners.remove(pendingTask);
+		}
+		if (bossWaiting.isEmpty() && bossRequest != null)
+		{
+			bossRequest.cancel();
+			bossRequest = null;
+			bossGeneration++;
 		}
 	}
 
@@ -82,6 +173,14 @@ final class WikiTaskVariantClient
 		requests.clear();
 		listeners.clear();
 		sessionResults.clear();
+		bossWaiting.clear();
+		bossTasks = null;
+		if (bossRequest != null)
+		{
+			bossRequest.cancel();
+			bossRequest = null;
+		}
+		bossGeneration++;
 	}
 
 	private void requestCandidate(String taskName, List<String> candidates, int candidateIndex)
@@ -248,7 +347,25 @@ final class WikiTaskVariantClient
 		{
 			return;
 		}
-		sessionResults.put(taskName, result);
+		deliver(taskName, result);
+	}
+
+	private void deliver(String taskName, TaskVariantDiscoveryResult result)
+	{
+		if (bossTasks != null)
+		{
+			List<TaskVariant> bosses = bossVariants(taskName);
+			if (bosses != null && bosses.size() > 1)
+			{
+				result = TaskVariantDiscoveryResult.loaded(bosses);
+			}
+			sessionResults.put(taskName, result);
+		}
+		else
+		{
+			// Preserve useful regular-task variants, but don't cache an incomplete boss lookup.
+			result = TaskVariantDiscoveryResult.partial(result.getVariants());
+		}
 		notifyListeners(taskName, result);
 	}
 

@@ -41,9 +41,12 @@ Local knowledge associated with a task name:
 
 - One or more curated monster variants
 - Monster variants discovered from the OSRS Wiki's Slayer task page
+- Directional boss substitutes explicitly listed in the Wiki's `Boss Slayer` assignable-boss table
 - A canonical default variant
 
-Each variant has a display name, OSRS Wiki page, and zero or more required-item conditions. The assignment's canonical monster is retained as a local fallback, while alternatives are discovered at runtime. The assignment-specific Wiki `Monster variants` table is authoritative when available; if no task page or parseable table exists, structured Wiki Bucket monster records matching the assignment's Slayer category provide a fallback. Alternate-game-mode records are excluded and duplicate pages are collapsed.
+Each variant has a display name, OSRS Wiki page, zero or more required-item conditions, and an optional eligibility note. The assignment's canonical monster is retained as a local fallback, while alternatives are discovered at runtime. A shared, lazy, session-cached `Boss Slayer` lookup first discovers explicit `can/may be killed instead` annotations in the assignable-boss table. Match its primary boss against the canonical Wiki page, including existing game-name aliases. An explicit boss/substitute group takes precedence over task-page or Bucket results and is directional, never an interchangeable family. No local boss-pair list is maintained. Boss rows without explicit substitutes continue through ordinary task discovery, preserving multi-monster boss groups.
+
+For ordinary discovery, the assignment-specific Wiki `Monster variants` table is authoritative when available; if no task page or parseable table exists, structured Wiki Bucket monster records matching the assignment's Slayer category provide a fallback. Alternate-game-mode records are excluded and duplicate pages are collapsed. A failed boss-table lookup preserves useful ordinary variants but marks discovery incomplete and does not cache that incomplete result; a later lookup can retry.
 
 Required-item knowledge is loaded once per session from the centralized OSRS Wiki `Slayer monsters` table. Its item names are resolved in one batched Wiki Bucket query and expanded through RuneLite's item-variation mapping. Reviewed gameval IDs handle labels absent from Bucket and preserve exact item states where necessary, such as the lit lantern required for Cave horrors. The parser preserves explicit compound rules for monsters whose requirements are not one flat set of alternatives. A complete centralized rule takes precedence over its curated fallback.
 
@@ -92,7 +95,7 @@ There are at most two missing-item infoboxes:
 
 Both tooltips identify the current Slayer task. Either infobox provides RuneLite's standard **Shift-right-click → Dismiss** menu action, which dismisses both.
 
-The sidebar panel identifies the current assignment and provides a RuneLite-native text filter above a scrollable list of styled variant rows. It first shows the canonical fallback, then refreshes with Wiki-discovered variants. It distinguishes loading, loaded, and unavailable discovery states. Selecting a row immediately updates the assignment-scoped variant. A link opens the active variant's OSRS Wiki page through RuneLite's `LinkBrowser`; automatic mode links to the canonical default variant.
+The sidebar panel identifies the current assignment and provides a RuneLite-native text filter above a scrollable list of styled variant rows. Conditional substitutes display their eligibility note without changing their monster name or Wiki destination. Deranged archaeologist carries the reviewed `Not for Konar assignments` restriction from the Boss Slayer Overview. Unknown prose is not interpreted as an eligibility rule. It first shows the canonical fallback, then refreshes with Wiki-discovered variants. It distinguishes loading, loaded, and unavailable discovery states. Selecting a row immediately updates the assignment-scoped variant. A link opens the active variant's OSRS Wiki page through RuneLite's `LinkBrowser`; automatic mode links to the canonical default variant.
 
 ## Lifecycle state
 
@@ -150,6 +153,7 @@ The OSRS Wiki is an asynchronous third-party dependency:
 - Parse a stable API response rather than scraping visual page layout where possible.
 - Discover variants from every monster link in the first column of the assignment's `Slayer task/<task>` Wiki page's `Monster variants` section.
 - When no task page or parseable variant table exists, query the Wiki Bucket `infobox_monster` Slayer category using normalized singular/plural task candidates.
+- Fetch the `Boss Slayer` assignable-boss table once per successful session lookup, sharing the request across current/stored assignments; cancel the request only when no waiting assignment needs it or on reset.
 - Fetch the `Slayer monsters` list section once and resolve all referenced item names through one batched Bucket query.
 - Keep successful required-item, variant, and derived drop-table results in memory for the current RuneLite session.
 - Deduplicate concurrent lookups for the same task or canonical monster.
@@ -165,7 +169,7 @@ Persist observed storage through RuneLite's RuneScape-profile configuration. Res
 
 The built-in Slayer counter is identified through its public infobox name (`SlayerPlugin_TaskCounter`), since its class and plugin accessor are not public. Append storage to its tooltip and restore our suffix on shutdown. Reapply after Slayer rebuilds the tooltip. Storage is presented through that tooltip and a sidebar label, which remains visible without a current assignment. No dedicated stored-task counter or counter setting exists. Check on a Slayer helm, ring, or enchanted gem continues to trigger missing-item reminders only.
 
-Reuse the shared session-cached Wiki variant discovery for stored assignments. Cancellation preserves both the current and stored task requests. Normalize exact NPC names, Wiki display names, page disambiguation, and canonical task singular/plural forms; do not use broad substring matching. Local-player interaction with an attackable matching NPC is an engagement, not a nearby-NPC or scene-scan trigger.
+Reuse the shared session-cached Wiki variant discovery for stored assignments. Cancellation preserves both the current and stored task requests. Because remembered storage lacks master/location context, conditional substitutes do not establish a stored-task match. Current-task matching still includes conditional candidates to conservatively suppress a potentially overlapping warning. A raw Slayer master value is not treated as proof of eligibility for a restored stored assignment. Normalize exact NPC names, Wiki display names, page disambiguation, and canonical task singular/plural forms; do not use broad substring matching. Local-player interaction with an attackable matching NPC is an engagement, not a nearby-NPC or scene-scan trigger.
 
 Suppress warnings for identical assignments, an NPC compatible with both assignments, unknown storage, locked storage, another player's engagement, or unavailable/loading current-task discovery. With no current task, a stored-task match can warn. Game messages and RuneLite notifications are enabled by default and independently configurable. Apply a shared 100-game-tick cooldown (about one minute), including engagements with different NPCs. Compatibility is monster-based and deliberately does not promise location-specific task credit.
 

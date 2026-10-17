@@ -22,6 +22,11 @@ final class TaskVariantDiscoveryResult
 		return new TaskVariantDiscoveryResult(variants, false);
 	}
 
+	static TaskVariantDiscoveryResult partial(List<TaskVariant> variants)
+	{
+		return new TaskVariantDiscoveryResult(variants, true);
+	}
+
 	static TaskVariantDiscoveryResult unavailable()
 	{
 		return new TaskVariantDiscoveryResult(Collections.emptyList(), true);

@@ -97,6 +97,25 @@ public class StoredTaskReminderTest
 	}
 
 	@Test
+	public void doesNotWarnForConditionalStoredSubstituteWithoutMasterKnowledge()
+	{
+		doAnswer(i ->
+		{
+			i.<Consumer<TaskVariantDiscoveryResult>>getArgument(1).accept(
+				TaskVariantDiscoveryResult.loaded(Collections.singletonList(new TaskVariant(
+					"Deranged archaeologist", "Deranged archaeologist", Collections.emptyList(),
+					"Not for Konar assignments"))));
+			return null;
+		}).when(variants).lookup(anyString(), any());
+		saved("Crazy Archaeologists");
+		when(npc.getName()).thenReturn("Deranged archaeologist");
+		tick("Gargoyles", "Gargoyle");
+		engage();
+		verifyNoInteractions(notifier);
+		verify(client, never()).addChatMessage(any(), anyString(), anyString(), any());
+	}
+
+	@Test
 	public void warnsForBossVariantAndRateLimitsAcrossMonsters()
 	{
 		saved("Blue dragons");

@@ -23,3 +23,4 @@ Research notes capture source investigation rather than current product behavior
 
 - [Centralized Slayer required-item data](research/slayer-required-item-sources.md)
 - [Bosses that count toward broader Slayer assignments](research/slayer-task-boss-variants.md)
+- [Directly assigned boss substitutes and conditional eligibility](research/boss-task-substitutes.md)

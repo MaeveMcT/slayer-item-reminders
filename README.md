@@ -2,7 +2,7 @@
 
 A standalone RuneLite plugin that reminds players which required and useful items to bring for Slayer tasks.
 
-The plugin shows short-lived required and optional infoboxes after a new assignment, bank visit, or explicit task check. Its sidebar discovers valid monster variants from the OSRS Wiki so recommendations can follow the monster the player intends to fight.
+The plugin shows short-lived required and optional infoboxes after a new assignment, bank visit, or explicit task check. Its sidebar discovers monster variants and explicitly listed boss substitutes from the OSRS Wiki so recommendations can follow the monster the player intends to fight. This includes Artio for Callisto, Spindel for Venenatis, and Calvar'ion for Vet'ion. Deranged archaeologist is listed for Crazy archaeologist with a warning that it does not count for Konar assignments.
 
 ## Stored-task reminders
 
@@ -13,7 +13,7 @@ Open **Slayer Rewards → Tasks** once to learn your stored assignment. The plug
 - Engaging a matching monster or boss produces a game message and RuneLite notification by default. Configure sound, screen flash, and desktop alerts through **Stored task notification**.
 - Warnings are limited to once per minute. Identical current/stored tasks and monsters matching both assignments do not warn.
 
-Monster matching reuses Wiki variant discovery. Warnings wait until current-task discovery succeeds, so an unavailable lookup does not cause a false overlap warning. Matching identifies monster compatibility; it does not validate location restrictions or guarantee task credit.
+Monster matching reuses Wiki variant discovery. Warnings wait until current-task discovery succeeds, so an unavailable lookup does not cause a false overlap warning. Conditional substitutes such as Deranged archaeologist do not trigger stored-task warnings because the remembered slot does not establish their eligibility. Matching identifies monster compatibility; it does not validate location restrictions or guarantee task credit.
 
 ## Design
 
